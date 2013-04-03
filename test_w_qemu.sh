@@ -1,5 +1,8 @@
 #tunctl -b -u $USER -t tapKVMLx0
 #brctl addif br0 tapKVMLx0
+# Create interface however you want to.
+# Recommendation to use a local proxy (ex squid) and transparent http redirection to save bandwidth
+
 DISK=kvm_lxgentootest.img
 [ ! -f $DISK ] && qemu-img create $DISK 20G
 qemu-system-x86_64 -m 2048 -smp 4,cores=4,sockets=1 -name lxgentootest \

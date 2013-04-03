@@ -89,10 +89,11 @@ mount /dev/sda1 /mnt/gentoo/boot || exit 1
 cd /mnt/gentoo || exit 1
 #cleanup in case of previous try...
 [ -f *.bz2 ] && rm *.bz2
-FILE=$(wget -q http://distfiles.gentoo.org/releases/amd64/current-stage3/ -O - | grep -o -e "stage3-\w*-\w*.tar.bz2" | uniq)
+STAGEDATE=$(wget -q http://distfiles.gentoo.org/releases/amd64/current-stage3/default/ -O - | grep -o -E "[0-9]{8}" | uniq)
+FILE=$(wget -q http://distfiles.gentoo.org/releases/amd64/current-stage3/default/$STAGEDATE/ -O - | grep -o -e "stage3-amd64-\w*.tar.bz2" | uniq)
 [ -z "$FILE" ] && exit 1
 #download latest stage file.
-wget http://distfiles.gentoo.org/releases/amd64/current-stage3/$FILE || exit 1
+wget http://distfiles.gentoo.org/releases/amd64/current-stage3/default/$STAGEDATE/$FILE || exit 1
 mkdir -p usr
 time tar -xjpf stage3-*bz2 &
 
