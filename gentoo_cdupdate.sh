@@ -10,7 +10,7 @@ then
     ping -c 1 raw.github.com && break
     sleep 2
   done
-  wget https://raw.github.com/ASoft-se/Gentoo-HAI/master/install.sh -O g-install.sh
+  wget https://raw.github.com/ASoft-se/Gentoo-HAI/master/install.sh? -O g-install.sh
   echo We just downloaded g-install.sh that can be used to make a install...
   echo maybe fix somethings like passwd before continue?
   grep autoinstall /proc/cmdline && sh g-install.sh
