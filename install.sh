@@ -305,13 +305,18 @@ sed -i 's/^#PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
 rc-update add sshd default
 /etc/init.d/sshd gen_keys
 
+# Start creating fix script
 echo # Remove udev rules that make network interface names compleatly unpredictable and unmanagable. > /etc/local.d/remove.net.rules.start
+echo setterm -blank 0 >> /etc/local.d/remove.net.rules.start
 echo rm -rf /lib/udev/rules.d/80-net-name-slot.rules >> /etc/local.d/remove.net.rules.start
-exit 0 >> /etc/local.d/remove.net.rules.start
+
+# Make it executable, and run also on shutdown
 chmod a+x /etc/local.d/remove.net.rules.start
 ln -fs /etc/local.d/remove.net.rules.start ln -fs /etc/local.d/remove.net.rules.stop
-sh /etc/local.d/remove.net.rules.start
 rc-update add local default
+# run it now and add clean exit (rm will fail if there is no file so always exit with ok)
+sh /etc/local.d/remove.net.rules.start
+echo exit 0 >> /etc/local.d/remove.net.rules.start
 
 touch /etc/quagga/zebra.conf
 touch /etc/quagga/ospfd.conf
