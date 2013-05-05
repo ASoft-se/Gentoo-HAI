@@ -5,7 +5,7 @@
 
 DISK=kvm_lxgentootest.img
 [ ! -f $DISK ] && qemu-img create $DISK 20G
-qemu-system-x86_64 -m 2048 -smp 4,cores=4,sockets=1 -name lxgentootest \
+qemu-kvm -m 2048 -smp 4,cores=4,sockets=1 -name lxgentootest \
 -drive id=d1,file=$DISK,if=none,media=disk,index=1,cache=writeback \
 -device ahci,id=ahci \
 -device ide-drive,drive=d1,bus=ahci.0 \
