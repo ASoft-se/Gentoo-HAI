@@ -189,7 +189,7 @@ grep -q net-dns/bind /etc/portage/package.use || echo net-dns/bind dlz geoip idn
 #   Will have to revert to the old way of removing the files on boot/shutdown, and just hope they don't change the naming.
 #   Looks like udev is just getting worse and worse
 #   or maybe we should just mask anything newer then 171, keeping -rule_generator for that case.
-grep -q sys-fs/udev /etc/portage/package.use || echo sys-fs/udev hwdb gudev keymaps -rule_generator >> /etc/portage/package.use
+grep -q sys-fs/udev /etc/portage/package.use || echo sys-fs/udev hwdb gudev keymap -rule_generator >> /etc/portage/package.use
 #snmp support in current apcupsd is buggy
 grep -q sys-power/apcupsd /etc/portage/package.use || echo sys-power/apcupsd -snmp >> /etc/portage/package.use
 
