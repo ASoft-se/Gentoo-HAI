@@ -2,7 +2,7 @@
 # Copyleft Christian Nilsson
 # Please do what you want! Use on your own risk and all that!
 #
-# This script partitions /dev/sda creates filesystem and installs gentoo.
+# This script partitions ${IDEV}, creates filesystem and installs gentoo.
 # Everything is done including the first reboot (just before reboot it will stop and let you edit the network configuration)
 #
 # root password will be set to SET_PASS parameter or "password" if not given
@@ -13,6 +13,12 @@
 # Hostname will be set to the same as the host
 # Keyboard layout will be configured to be swedish (sv-latin1) and timezone Europe/Stockholm (and ntp.se will be used as a timeserver)
 #
+
+# Make sure our root mountpoint exists
+mkdir -p /mnt/gentoo
+
+IDEV=/dev/sda
+FSTABDEV=${IDEV}
 
 if [ "$(hostname)" == "livecd" ]; then
   echo Change hostname before you continue since it will be used for the created host.
@@ -26,7 +32,7 @@ echo -e "${SET_PASS}\n${SET_PASS}\n" | passwd
 setterm -blank 0
 set -x
 
-#Create a 100MB boot 4GB Swap and the rest root on /dev/sda
+#Create a 100MB boot 4GB Swap and the rest root on ${IDEV}
 echo "
 p
 o
@@ -59,10 +65,10 @@ p
 
 
 w
-" | fdisk /dev/sda || exit 1
+" | fdisk ${IDEV} || exit 1
 
 #we should detect and use md if we multiple disks with same size...
-#sfdisk -d /dev/sda | sfdisk --force /dev/sdb || exit 1
+#sfdisk -d ${IDEV} | sfdisk --force /dev/sdb || exit 1
 #for a in /dev/md*; do mdadm -S $a; done
 
 #mdadm --help
@@ -72,28 +78,27 @@ w
 #mdadm -Cv /dev/md3 -l1 -n2 /dev/sd[ab]3 --metadata=0.90 || exit 1
 #mdadm -Cv /dev/md4 -l4 -n3 /dev/sd[ab]4 missing --metadata=0.90 || exit 1
 
-mkswap -L swap0 /dev/sda2 || exit 1
+mkswap -L swap0 ${IDEV}2 || exit 1
 #mkswap -L swap1 /dev/sdb2 || exit 1
 
-swapon -p1 /dev/sda2 || exit 1
+swapon -p1 ${IDEV}2 || exit 1
 
-mkfs.ext2 /dev/sda1 || exit 1
-mkfs.ext4 /dev/sda3 || exit 1
+mkfs.ext2 ${IDEV}1 || exit 1
+mkfs.ext4 ${IDEV}3 || exit 1
 
 #cat /proc/mdstat
 
-mount /dev/sda3 /mnt/gentoo -o discard,noatime || exit 1
+mount ${IDEV}3 /mnt/gentoo -o discard,noatime || exit 1
 mkdir /mnt/gentoo/boot || exit 1
-mount /dev/sda1 /mnt/gentoo/boot || exit 1
+mount ${IDEV}1 /mnt/gentoo/boot || exit 1
 
 cd /mnt/gentoo || exit 1
 #cleanup in case of previous try...
 [ -f *.bz2 ] && rm *.bz2
-STAGEDATE=$(wget -q http://distfiles.gentoo.org/releases/amd64/current-stage3/default/ -O - | grep -o -E "[0-9]{8}" | uniq)
-FILE=$(wget -q http://distfiles.gentoo.org/releases/amd64/current-stage3/default/$STAGEDATE/ -O - | grep -o -e "stage3-amd64-\w*.tar.bz2" | uniq)
+wget -q http://distfiles.gentoo.org/releases/amd64/current-stage3/$STAGEDATE/ -O - | grep -o -e "stage3-amd64-\w*.tar.bz2" | uniq
 [ -z "$FILE" ] && exit 1
 #download latest stage file.
-wget http://distfiles.gentoo.org/releases/amd64/current-stage3/default/$STAGEDATE/$FILE || exit 1
+wget http://distfiles.gentoo.org/releases/amd64/current-stage3/$FILE || exit 1
 mkdir -p usr
 time tar -xjpf stage3-*bz2 &
 
@@ -109,8 +114,8 @@ hostname=\"$(hostname)\"
 " > etc/conf.d/hostname
 #change fstab to match disk layout
 echo -e "
-/dev/sda1		/boot		ext2		noauto,noatime	1 2
-/dev/sda3		/		ext4		discard,noatime	0 1
+${FSTABDEV}1		/boot		ext2		noauto,noatime	1 2
+${FSTABDEV}3		/		ext4		discard,noatime	0 1
 LABEL=swap0		none		swap		sw		0 0
 
 none			/var/tmp	tmpfs		size=4G,nr_inodes=1M 0 0
@@ -256,7 +261,7 @@ echo "
 timeout 3
 title Gentoo
 root (hd0,0)
-kernel /vmlinuz root=/dev/sda3 ro rootfstype=ext4 panic=30 video=uvesafb:1024x768-32" >> /boot/grub/grub.conf
+kernel /vmlinuz root=${FSTABDEV}3 ro rootfstype=ext4 panic=30 video=uvesafb:1024x768-32" >> /boot/grub/grub.conf
 #mcedit /boot/grub/grub.conf
 echo "root (hd0,0)
 setup (hd0)
