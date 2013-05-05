@@ -3,8 +3,13 @@ Gentoo-HAI
 
 Headless Auto Install, Perfect for initial gentoo server setup.
 
-Use a livecd and manually download https://raw.github.com/ASoft-se/Gentoo-HAI/master/install.sh
+Use a livecd and manually download http://goo.gl/5Y2Gj (https://raw.github.com/ASoft-se/Gentoo-HAI/master/install.sh)
 and run it to make the installation..
+Example:
+```bash
+wget goo.gl/5Y2Gj -O install.sh
+sh install.sh
+```
 Please check the script for settings and optimizions that can be done.
 
 There is also scripts to modify gentoo livecds to automate download and running of the installation.
