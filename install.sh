@@ -185,7 +185,11 @@ mount /var/tmp
 grep -q gentoo-sources /etc/portage/package.keywords/* || echo sys-kernel/gentoo-sources > /etc/portage/package.keywords/kernel
 touch /etc/portage/package.use
 grep -q net-dns/bind /etc/portage/package.use || echo net-dns/bind dlz geoip idn caps threads >> /etc/portage/package.use
-grep -q sys-fs/udev /etc/portage/package.use || echo sys-fs/udev -rule_generator >> /etc/portage/package.use
+# The old udev rules are removed and now replaced with the PredictableNetworkInterfaceNames madness instead, and no use flags any more.
+#   Will have to revert to the old way of removing the files on boot/shutdown, and just hope they don't change the naming.
+#   Looks like udev is just getting worse and worse
+#   or maybe we should just mask anything newer then 171, keeping -rule_generator for that case.
+grep -q sys-fs/udev /etc/portage/package.use || echo sys-fs/udev hwdb gudev keymaps -rule_generator >> /etc/portage/package.use
 #snmp support in current apcupsd is buggy
 grep -q sys-power/apcupsd /etc/portage/package.use || echo sys-power/apcupsd -snmp >> /etc/portage/package.use
 
@@ -246,6 +250,11 @@ CONFIG_VM_EVENT_COUNTERS=y
 #qemu kvm_stat need
 CONFIG_DEBUG_FS=y
 
+# use old vesa, vga= mode
+CONFIG_FB_VESA=y
+# and make uvesafb a module instead
+CONFIG_FB_UVESA=m
+
 " >> .config
 
 echo "x
@@ -261,7 +270,8 @@ echo "
 timeout 3
 title Gentoo
 root (hd0,0)
-kernel /vmlinuz root=${FSTABDEV}3 ro rootfstype=ext4 panic=30 video=uvesafb:1024x768-32" >> /boot/grub/grub.conf
+# video=uvesafb:1024x768-32 is not stable on ex intel integrated gfx
+kernel /vmlinuz root=${FSTABDEV}3 ro rootfstype=ext4 panic=30 vga=791" >> /boot/grub/grub.conf
 #mcedit /boot/grub/grub.conf
 echo "root (hd0,0)
 setup (hd0)
@@ -295,6 +305,14 @@ sed -i 's/^#PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
 rc-update add sshd default
 /etc/init.d/sshd gen_keys
 
+echo # Remove udev rules that make network interface names compleatly unpredictable and unmanagable. > /etc/local.d/remove.net.rules.start
+echo rm -rf /lib/udev/rules.d/80-net-name-slot.rules >> /etc/local.d/remove.net.rules.start
+exit 0 >> /etc/local.d/remove.net.rules.start
+chmod a+x /etc/local.d/remove.net.rules.start
+ln -fs /etc/local.d/remove.net.rules.start ln -fs /etc/local.d/remove.net.rules.stop
+sh /etc/local.d/remove.net.rules.start
+rc-update add local default
+
 touch /etc/quagga/zebra.conf
 touch /etc/quagga/ospfd.conf
 echo EXTRA_OPTS=\"-A 127.0.0.1 -P 0\" >> /etc/conf.d/zebra
@@ -314,7 +332,7 @@ sleep 5 || bash
 
 # fix problem with apcupsd...
 [ -d /run/lock ] || mkdir /run/lock
-emerge -uv -j4 net-snmp squid vsftpd subversion php openvpn apcupsd iotop iftop dd-rescue nmap netkit-telnetd dmidecode hdparm || bash
+emerge -uv -j4 net-snmp squid vsftpd subversion php openvpn apcupsd iotop iftop dd-rescue tcpdump nmap netkit-telnetd dmidecode hdparm parted || bash
 #todo if local ups... rc-update add apcupsd.powerfail shutdown
 #todo configure snmp and add to startup
 
@@ -331,7 +349,7 @@ EOF
 chmod a+x chrootstart.sh
 
 chroot . ./chrootstart.sh
-
+rm chrootstart.sh
 
 umount var/tmp
 rm -rf var/tmp/*
