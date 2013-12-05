@@ -31,6 +31,8 @@ echo -e "${SET_PASS}\n${SET_PASS}\n" | passwd
 
 setterm -blank 0
 set -x
+# Try to update to a correct system time
+ntpdate ntp.se &
 
 #Create a 100MB boot 4GB Swap and the rest root on ${IDEV}
 echo "
@@ -134,7 +136,7 @@ echo >> $MAKECONF
 echo "# add valid -march= to CFLAGS" >> $MAKECONF
 echo "MAKEOPTS=\"-j4\"" >> $MAKECONF
 echo "FEATURES=\"parallel-fetch\"" >> $MAKECONF
-echo "USE=\"\${USE} -X python qemu gnutls idn iproute2 logrotate snmp\"" >> $MAKECONF
+echo "USE=\"\${USE} -X -bindist python qemu gnutls idn iproute2 logrotate snmp\"" >> $MAKECONF
 
 grep -q autoinstall /proc/cmdline || nano $MAKECONF
 
@@ -187,9 +189,15 @@ touch /etc/portage/package.use
 grep -q net-dns/bind /etc/portage/package.use || echo net-dns/bind dlz geoip idn caps threads >> /etc/portage/package.use
 # The old udev rules are removed and now replaced with the PredictableNetworkInterfaceNames madness instead, and no use flags any more.
 #   Will have to revert to the old way of removing the files on boot/shutdown, and just hope they don't change the naming.
-#   Looks like udev is just getting worse and worse
-#   or maybe we should just mask anything newer then 171, keeping -rule_generator for that case.
-grep -q sys-fs/udev /etc/portage/package.use || echo sys-fs/udev hwdb gudev keymap -rule_generator >> /etc/portage/package.use
+#   Looks like udev is just getting worse and worse, switching to eudev.
+# touch to disable the unpredictable "PredictableNetworkInterfaceNames"
+touch /etc/udev/rules.d/80-net-name-slot.rules
+grep -q sys-fs/eudev /etc/portage/package.use || echo sys-fs/eudev hwdb gudev keymap -rule-generator >> /etc/portage/package.use
+time emerge -C sys-fs/udev
+# will reinstall eudev further down after kernel sources
+time emerge -v sys-fs/eudev
+# mask old udev so it is not pulled in.
+echo sys-fs/udev >> /etc/portage/package.mask
 #snmp support in current apcupsd is buggy
 grep -q sys-power/apcupsd /etc/portage/package.use || echo sys-power/apcupsd -snmp >> /etc/portage/package.use
 
@@ -203,6 +211,8 @@ time revdep-rebuild -vi -- -j4
 etc-update --automode -5
 
 time emerge -uv -j8 gentoo-sources mlocate postfix iproute2 bind quagga dhcp atftp dhcpcd app-misc/mc pciutils usbutils smartmontools syslog-ng vixie-cron ntp lsof || bash
+# reinstall eudev, TODO detect if we did switch above and only install if needed
+time emerge -v -j8 eudev
 time emerge -uv -j8 iptables grub bridge-utils v86d ebtables vconfig || bash
 lspci
 ntpdate ntp.se
@@ -217,6 +227,11 @@ cd /usr/src/linux
 #getting a base kernel config
 wget https://raw.github.com/ASoft-se/Gentoo-HAI/master/krn330.conf -O .config
 echo "
+# Gentoo Linux
+CONFIG_GENTOO_LINUX=y
+CONFIG_GENTOO_LINUX_UDEV=y
+CONFIG_GENTOO_LINUX_INIT_SCRIPT=y
+
 #fix hotplug (vmware)
 CONFIG_HOTPLUG_PCI_SHPC=y
 #no use for sound in virtual machine
