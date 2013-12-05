@@ -1,5 +1,6 @@
 #tunctl -b -u $USER -t tapKVMLx0
 #brctl addif br0 tapKVMLx0
+#ip link set up tapKVMLx0
 # Create interface however you want to.
 # Recommendation to use a local proxy (ex squid) and transparent http redirection to save bandwidth
 
