@@ -3,6 +3,9 @@
 #ip link set up tapKVMLx0
 # Create interface however you want to.
 # Recommendation to use a local proxy (ex squid) and transparent http redirection to save bandwidth
+# ex iptables transparent proxy:  iptables -t nat -A PREROUTING -i br0 -p tcp --dport 80 -j REDIRECT --to-port 3128
+
+# start with -cdrom install-amd64-mod.iso to boot from livecd
 
 DISK=kvm_lxgentootest.img
 [ ! -f $DISK ] && qemu-img create $DISK 20G
@@ -15,7 +18,6 @@ qemu-kvm -m 2048 -smp 4,cores=4,sockets=1 -name lxgentootest \
 -watchdog i6300esb -watchdog-action reset \
 -usb -vga vmware -vnc 127.0.0.1:22 -k sv $*
 
-#-cdrom install-amd64-mod.iso
-
+# Extra lines to add if using multiple disks with ahci
 #-drive id=d2,file=kvm_lx2.img,if=none,media=disk,index=3,cache=writeback \
 #-device ide-drive,drive=d2,bus=ahci.1 \
