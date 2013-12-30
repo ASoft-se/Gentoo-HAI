@@ -5,7 +5,7 @@ modprobe loop
 mount -r -o loop,users install-amd64-minimal-*.iso /mnt/cdrom || exit 1
 [ ! -d gentoo_boot_cd ] && (mkdir gentoo_boot_cd || exit 1)
 echo Make all changes in a tmpfs for performance, and saving on SSD writes.
-mount none -t tmpfs gentoo_boot_cd -o size=1G,nr_inodes=1048576
+mount none -t tmpfs gentoo_boot_cd -o size=2G,nr_inodes=1048576
 cp -av /mnt/cdrom/* gentoo_boot_cd || exit 1
 umount /mnt/cdrom || exit 1
 
