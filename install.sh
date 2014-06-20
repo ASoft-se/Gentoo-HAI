@@ -136,7 +136,8 @@ echo >> $MAKECONF
 echo "# add valid -march= to CFLAGS" >> $MAKECONF
 echo "MAKEOPTS=\"-j4\"" >> $MAKECONF
 echo "FEATURES=\"parallel-fetch\"" >> $MAKECONF
-echo "USE=\"\${USE} -X -bindist python qemu gnutls idn iproute2 logrotate snmp\"" >> $MAKECONF
+# tty-helpers is needed py apcupsd
+echo "USE=\"\${USE} -X -bindist python qemu gnutls idn iproute2 logrotate snmp tty-helpers\"" >> $MAKECONF
 
 grep -q autoinstall /proc/cmdline || nano $MAKECONF
 
@@ -192,10 +193,12 @@ grep -q net-dns/bind /etc/portage/package.use || echo net-dns/bind dlz geoip idn
 #   Looks like udev is just getting worse and worse, switching to eudev.
 # touch to disable the unpredictable "PredictableNetworkInterfaceNames"
 touch /etc/udev/rules.d/80-net-name-slot.rules
+# they made it unpredictable and changed the name, so lets be future prof
+touch /etc/udev/rules.d/80-net-setup-link.rules
 grep -q sys-fs/eudev /etc/portage/package.use || echo sys-fs/eudev hwdb gudev keymap -rule-generator >> /etc/portage/package.use
 time emerge -C sys-fs/udev
 # will reinstall eudev further down after kernel sources
-time emerge -v sys-fs/eudev
+time emerge -uvN sys-fs/eudev
 # mask old udev so it is not pulled in.
 echo sys-fs/udev >> /etc/portage/package.mask
 #snmp support in current apcupsd is buggy
@@ -212,7 +215,7 @@ etc-update --automode -5
 
 time emerge -uv -j8 gentoo-sources mlocate postfix iproute2 bind quagga dhcp atftp dhcpcd app-misc/mc pciutils usbutils smartmontools syslog-ng vixie-cron ntp lsof || bash
 # reinstall eudev, TODO detect if we did switch above and only install if needed
-time emerge -v -j8 eudev
+time emerge -uvN -j8 eudev
 time emerge -uv -j8 iptables grub bridge-utils v86d ebtables vconfig || bash
 lspci
 ntpdate ntp.se
