@@ -97,10 +97,10 @@ mount ${IDEV}1 /mnt/gentoo/boot || exit 1
 cd /mnt/gentoo || exit 1
 #cleanup in case of previous try...
 [ -f *.bz2 ] && rm *.bz2
-FILE=$(wget -q http://distfiles.gentoo.org/releases/amd64/current-stage3/ -O - | grep -o -e "stage3-amd64-\w*.tar.bz2" | uniq)
+FILE=$(wget -q http://distfiles.gentoo.org/releases/amd64/autobuilds/current-stage3-amd64/ -O - | grep -o -e "stage3-amd64-20\w*.tar.bz2" | uniq)
 [ -z "$FILE" ] && exit 1
 #download latest stage file.
-wget http://distfiles.gentoo.org/releases/amd64/current-stage3/$FILE || exit 1
+wget http://distfiles.gentoo.org/releases/amd64/autobuilds/current-stage3-amd64/$FILE || exit 1
 mkdir -p usr
 time tar -xjpf stage3-*bz2 &
 
@@ -286,12 +286,14 @@ timeout 3
 title Gentoo
 root (hd0,0)
 # video=uvesafb:1024x768-32 is not stable on ex intel integrated gfx
-kernel /vmlinuz root=${FSTABDEV}3 ro rootfstype=ext4 panic=30 vga=791" >> /boot/grub/grub.conf
+#kernel /vmlinuz root=${FSTABDEV}3 ro rootfstype=ext4 panic=30 vga=791" >> /boot/grub/grub.conf
 #mcedit /boot/grub/grub.conf
-echo "root (hd0,0)
-setup (hd0)
-quit
-" | grub
+#echo "root (hd0,0)
+#setup (hd0)
+#quit
+#" | grub
+grub2-install /dev/sda
+grub2-mkconfig -o /boot/grub/grub.cfg
 
 cd /etc
 ln -fs /usr/share/zoneinfo/Europe/Stockholm localtime
