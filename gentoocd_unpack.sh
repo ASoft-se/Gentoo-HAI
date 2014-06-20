@@ -18,6 +18,7 @@ rm image.squashfs
 echo do changes...
 # Try to get rid of the PredictableNetworkInterfaceNames Shit! With it we never know what the nics are called.
 echo > squashfs-root/lib64/udev/rules.d/80-net-name-slot.rules
+echo > squashfs-root/lib64/udev/rules.d/80-net-setup-link.rules
 
 cp ../gentoo_cdupdate.sh cdupdate.sh
 chmod a+x cdupdate.sh
