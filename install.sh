@@ -196,7 +196,7 @@ touch /etc/udev/rules.d/80-net-name-slot.rules
 # they made it unpredictable and changed the name, so lets be future prof
 touch /etc/udev/rules.d/80-net-setup-link.rules
 grep -q sys-fs/eudev /etc/portage/package.use || echo sys-fs/eudev hwdb gudev keymap -rule-generator >> /etc/portage/package.use
-time emerge -C sys-fs/udev
+time emerge -C --quiet-unmerge-warn sys-fs/udev
 # will reinstall eudev further down after kernel sources
 time emerge -uvN sys-fs/eudev
 # mask old udev so it is not pulled in.
@@ -296,6 +296,10 @@ root (hd0,0)
 #quit
 #" | grub
 grub2-install /dev/sda
+sed -i '/\^//' /etc/default/grub
+sed -i 's/^#GRUB_DISABLE_LINUX_UUID=[a-z]*/GRUB_DISABLE_LINUX_UUID=true/' /etc/default/grub
+sed -i 's/^#GRUB_CMDLINE_LINUX_DEFAULT=""/GRUB_CMDLINE_LINUX_DEFAULT="rootfstype=ext4 panic=30 vga=791"/' /etc/default/grub
+sed -i 's/^GRUB_TIMEOUT=10/GRUB_TIMEOUT=3/' /etc/default/grub
 grub2-mkconfig -o /boot/grub/grub.cfg
 
 cd /etc
