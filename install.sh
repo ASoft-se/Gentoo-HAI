@@ -385,5 +385,7 @@ rm -rf var/tmp/*
 rm -rf usr/portage/distfiles
 umount *
 cd /
-umount /mnt/gentoo  || exit 1
-reboot
+## umount somehow fails recently, but can not find usage, lets go lazy
+umount -l /mnt/gentoo  || exit 1
+# halt in QEMU guest instead of reboot to messure and autohandle on vm shutdown
+grep -q QEMU /proc/cpuinfo && halt || reboot
