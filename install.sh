@@ -26,10 +26,7 @@ if [ "$(hostname)" == "livecd" ]; then
 fi
 #IF NOT SET_PASS is set then the password will be "password"
 SET_PASS=${SET_PASS:-password}
-/etc/init.d/sshd start
-echo -e "${SET_PASS}\n${SET_PASS}\n" | passwd
 
-setterm -blank 0
 set -x
 # Try to update to a correct system time
 ntpdate ntp.se &
@@ -99,7 +96,7 @@ cd /mnt/gentoo || exit 1
 [ -f *.bz2 ] && rm *.bz2
 FILE=$(wget -q http://distfiles.gentoo.org/releases/amd64/autobuilds/current-stage3-amd64/ -O - | grep -o -e "stage3-amd64-20\w*.tar.bz2" | uniq)
 [ -z "$FILE" ] && exit 1
-#download latest stage file.
+echo download latest stage file $FILE
 wget http://distfiles.gentoo.org/releases/amd64/autobuilds/current-stage3-amd64/$FILE || exit 1
 mkdir -p usr
 time tar -xjpf stage3-*bz2 &
@@ -185,24 +182,25 @@ rm *.bz2
 mount /var/tmp
 
 [ -d /etc/portage/package.keywords ] || mkdir -p /etc/portage/package.keywords
-grep -q gentoo-sources /etc/portage/package.keywords/* || echo sys-kernel/gentoo-sources > /etc/portage/package.keywords/kernel
-touch /etc/portage/package.use
-grep -q net-dns/bind /etc/portage/package.use || echo net-dns/bind dlz geoip idn caps threads >> /etc/portage/package.use
+grep -q gentoo-sources /etc/portage/package.keywords/* || echo sys-kernel/gentoo-sources > /etc/portage/package.keywords/kernel &
+[ -d /etc/portage/package.use ] || mkdir -p /etc/portage/package.use
+grep -q net-dns/bind /etc/portage/package.use/* || echo net-dns/bind dlz geoip idn caps threads >> /etc/portage/package.use/bind &
 # The old udev rules are removed and now replaced with the PredictableNetworkInterfaceNames madness instead, and no use flags any more.
 #   Will have to revert to the old way of removing the files on boot/shutdown, and just hope they don't change the naming.
 #   Looks like udev is just getting worse and worse, switching to eudev.
 # touch to disable the unpredictable "PredictableNetworkInterfaceNames"
-touch /etc/udev/rules.d/80-net-name-slot.rules
+touch /etc/udev/rules.d/80-net-name-slot.rules &
 # they made it unpredictable and changed the name, so lets be future prof
-touch /etc/udev/rules.d/80-net-setup-link.rules
-grep -q sys-fs/eudev /etc/portage/package.use || echo sys-fs/eudev hwdb gudev keymap -rule-generator >> /etc/portage/package.use
-time emerge -C --quiet-unmerge-warn sys-fs/udev
+touch /etc/udev/rules.d/80-net-setup-link.rules &
+grep -q sys-fs/eudev /etc/portage/package.use/* || echo sys-fs/eudev hwdb gudev keymap -rule-generator >> /etc/portage/package.use/eudev
+# mask old udev so it is not pulled in.
+[ -d /etc/portage/package.mask ] || mkdir -p /etc/portage/package.mask
+echo sys-fs/udev >> /etc/portage/package.mask/udev &
+time emerge -C --quiet-unmerge-warn sys-fs/udev &
 # will reinstall eudev further down after kernel sources
 time emerge -uvN sys-fs/eudev
-# mask old udev so it is not pulled in.
-echo sys-fs/udev >> /etc/portage/package.mask
 #snmp support in current apcupsd is buggy
-grep -q sys-power/apcupsd /etc/portage/package.use || echo sys-power/apcupsd -snmp >> /etc/portage/package.use
+grep -q sys-power/apcupsd /etc/portage/package.use/* || echo sys-power/apcupsd -snmp >> /etc/portage/package.use/apcupsd
 
 #start out with being up2date
 #we expect that this can fail
@@ -361,7 +359,7 @@ sleep 5 || bash
 
 # fix problem with apcupsd...
 [ -d /run/lock ] || mkdir /run/lock
-emerge -uv -j4 net-snmp squid vsftpd subversion php openvpn apcupsd iotop iftop dd-rescue tcpdump nmap netkit-telnetd dmidecode hdparm parted || bash
+emerge -uv -j4 net-snmp squid vsftpd dev-vcs/git subversion php openvpn apcupsd iotop iftop dd-rescue tcpdump nmap netkit-telnetd dmidecode hdparm parted || bash
 #todo if local ups... rc-update add apcupsd.powerfail shutdown
 #todo configure snmp and add to startup
 
