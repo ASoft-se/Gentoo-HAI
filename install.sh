@@ -191,9 +191,12 @@ mount /var/tmp
 # fix for new mtab init
 ln -snf /proc/self/mounts /etc/mtab
 
+[ -d /etc/portage/repos.conf ] || mkdir -p /etc/portage/repos.conf
 [ -d /etc/portage/package.keywords ] || mkdir -p /etc/portage/package.keywords
-grep -q gentoo-sources /etc/portage/package.keywords/* || echo sys-kernel/gentoo-sources > /etc/portage/package.keywords/kernel &
 [ -d /etc/portage/package.use ] || mkdir -p /etc/portage/package.use
+[ -d /etc/portage/package.mask ] || mkdir -p /etc/portage/package.mask
+
+grep -q gentoo-sources /etc/portage/package.keywords/* || echo sys-kernel/gentoo-sources > /etc/portage/package.keywords/kernel &
 grep -q net-dns/bind /etc/portage/package.use/* || echo net-dns/bind dlz geoip idn caps threads >> /etc/portage/package.use/bind &
 # The old udev rules are removed and now replaced with the PredictableNetworkInterfaceNames madness instead, and no use flags any more.
 #   Will have to revert to the old way of removing the files on boot/shutdown, and just hope they don't change the naming.
@@ -204,7 +207,6 @@ touch /etc/udev/rules.d/80-net-name-slot.rules &
 touch /etc/udev/rules.d/80-net-setup-link.rules &
 grep -q sys-fs/eudev /etc/portage/package.use/* || echo sys-fs/eudev hwdb gudev keymap -rule-generator >> /etc/portage/package.use/eudev
 # mask old udev so it is not pulled in.
-[ -d /etc/portage/package.mask ] || mkdir -p /etc/portage/package.mask
 echo sys-fs/udev >> /etc/portage/package.mask/udev &
 time emerge -C --quiet-unmerge-warn sys-fs/udev &
 # will reinstall eudev further down after kernel sources
@@ -220,6 +222,8 @@ etc-update --automode -5
 time python-updater -v -- -j4 || bash
 time revdep-rebuild -vi -- -j4
 etc-update --automode -5
+
+[ -f /etc/portage/package.mask/gentoo.conf ] || cp /usr/share/portage/config/repos.conf /etc/portage/repos.conf/gentoo.conf
 
 time emerge -uv -j8 gentoo-sources mlocate postfix iproute2 bind quagga dhcp atftp dhcpcd app-misc/mc pciutils usbutils smartmontools syslog-ng vixie-cron ntp lsof || bash
 mkdir /tftproot
@@ -370,6 +374,12 @@ sleep 5 || bash
 # fix problem with apcupsd...
 [ -d /run/lock ] || mkdir /run/lock
 emerge -uv -j4 net-snmp squid vsftpd dev-vcs/git subversion php openvpn apcupsd iotop iftop dd-rescue tcpdump nmap netkit-telnetd dmidecode hdparm parted || bash
+
+# move to git based portage tree
+sed -i 's#sync-type = rsync#sync-type = git#' /etc/portage/repos.conf/gentoo.conf
+sed -i 's#sync-uri = rsync://rsync.gentoo.org/gentoo-portage#sync-uri = git://anongit.gentoo.org/repo/gentoo.git#' /etc/portage/repos.conf/gentoo.conf
+cd /usr/portage/ && git clone --depth 1 git://anongit.gentoo.org/repo/gentoo.git -n && chown -R portage:portage gentoo && mv gentoo/.git . && rmdir gentoo && git checkout -- && git clean -d -x -f -q && emerge --sync
+
 #todo if local ups... rc-update add apcupsd.powerfail shutdown
 #todo configure snmp and add to startup
 
