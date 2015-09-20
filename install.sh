@@ -128,6 +128,9 @@ MAKECONF=etc/portage/make.conf
 [ ! -f $MAKECONF ] && [ -f etc/make.conf ] && MAKECONF=etc/make.conf
 echo $MAKECONF
 
+# remove bindist from USE in make.conf
+sed -i 's/bindist //' $MAKECONF
+
 #Updating Makefile
 echo >> $MAKECONF
 echo "# add valid -march= to CFLAGS" >> $MAKECONF
@@ -148,6 +151,10 @@ dhcp_eth0=\"nodns nontp nonis nosendhost\"
 #config_eth0=\"dhcp\"
 config_eth0=\"192.168.0.251/24\"
 routes_eth0=\"default via 192.168.0.254\"
+
+link_6to4=\"eth0\"
+config_6to4=\"ip6to4\"
+RC_NEED_6to4=\"net.eth0\"
 
 config_eth1=\"null\"
 bridge_br1=\"eth1\"
@@ -181,6 +188,9 @@ set -x
 rm *.bz2
 mount /var/tmp
 
+# fix for new mtab init
+ln -snf /proc/self/mounts /etc/mtab
+
 [ -d /etc/portage/package.keywords ] || mkdir -p /etc/portage/package.keywords
 grep -q gentoo-sources /etc/portage/package.keywords/* || echo sys-kernel/gentoo-sources > /etc/portage/package.keywords/kernel &
 [ -d /etc/portage/package.use ] || mkdir -p /etc/portage/package.use
@@ -212,6 +222,7 @@ time revdep-rebuild -vi -- -j4
 etc-update --automode -5
 
 time emerge -uv -j8 gentoo-sources mlocate postfix iproute2 bind quagga dhcp atftp dhcpcd app-misc/mc pciutils usbutils smartmontools syslog-ng vixie-cron ntp lsof || bash
+mkdir /tftproot
 # reinstall eudev, TODO detect if we did switch above and only install if needed
 time emerge -uvN -j8 eudev
 time emerge -uv -j8 iptables grub bridge-utils v86d ebtables vconfig || bash
@@ -315,11 +326,10 @@ dispatch-conf
 #mcedit /etc/conf.d/hwclock
 #touch /lib64/rc/init.d/softlevel
 #/etc/init.d/hwclock save
-date
-sleep 3
 sed -i 's/^c1:12345:respawn:\/sbin\/agetty .* tty1 linux\$/& --noclear/' /etc/inittab || bash
 cd /etc/init.d
 ln -s net.lo net.eth0
+ln -s net.lo net.6to4
 rc-update add syslog-ng default
 rc-update add vixie-cron default
 rc-update add atftp default
@@ -368,6 +378,7 @@ emerge -uv -j4 net-snmp squid vsftpd dev-vcs/git subversion php openvpn apcupsd 
 #mcedit /etc/rc.conf
 mcedit /etc/conf.d/net
 rc-update add net.eth0 default
+ip -6 a | grep -q " 200[1-2]:" || rc-update add net.6to4 default
 #sleep 5 || bash
 
 umount /var/tmp
