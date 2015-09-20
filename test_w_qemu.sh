@@ -11,6 +11,9 @@ ip link set up $netdev
 
 DISK=kvm_lxgentootest.img
 [ ! -f $DISK ] && qemu-img create $DISK 20G
+
+(sleep 3; vncviewer :22) &
+
 qemu-system-x86_64 -enable-kvm -M q35 -m 2048 -cpu host -smp 4,cores=4,sockets=1 -name lxgentootest \
 -drive id=d1,file=$DISK,if=none,media=disk,index=1,aio=native,cache=writeback \
 -device ahci,id=ahci \
