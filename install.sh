@@ -154,7 +154,8 @@ routes_eth0=\"default via 192.168.0.254\"
 
 link_6to4=\"eth0\"
 config_6to4=\"ip6to4\"
-RC_NEED_6to4=\"net.eth0\"
+rc_net_6to4_need=\"net.eth0\"
+rc_net_6to4_provide=\"!net\"
 
 config_eth1=\"null\"
 bridge_br1=\"eth1\"
