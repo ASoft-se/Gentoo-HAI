@@ -209,16 +209,15 @@ touch /etc/udev/rules.d/80-net-setup-link.rules &
 grep -q sys-fs/eudev /etc/portage/package.use/* || echo sys-fs/eudev hwdb gudev keymap -rule-generator >> /etc/portage/package.use/eudev
 # mask old udev so it is not pulled in.
 echo sys-fs/udev >> /etc/portage/package.mask/udev &
-time emerge -C --quiet-unmerge-warn sys-fs/udev &
+emerge -C --quiet-unmerge-warn sys-fs/udev &
 # will reinstall eudev further down after kernel sources
-time emerge -uvN sys-fs/eudev
+time emerge -uvN -j4 --keep-going y sys-fs/eudev portage python-updater gentoolkit
 #snmp support in current apcupsd is buggy
 grep -q sys-power/apcupsd /etc/portage/package.use/* || echo sys-power/apcupsd -snmp >> /etc/portage/package.use/apcupsd
 
 #start out with being up2date
 #we expect that this can fail
-time emerge -uv -j4 portage python-updater gentoolkit
-time emerge -uvDN -j4 world
+time emerge -uvDN -j4 --keep-going y world
 etc-update --automode -5
 time python-updater -v -- -j4 || bash
 time revdep-rebuild -vi -- -j4
@@ -379,7 +378,13 @@ emerge -uv -j4 net-snmp squid vsftpd dev-vcs/git subversion php openvpn apcupsd 
 # move to git based portage tree
 sed -i 's#sync-type = rsync#sync-type = git#' /etc/portage/repos.conf/gentoo.conf
 sed -i 's#sync-uri = rsync://rsync.gentoo.org/gentoo-portage#sync-uri = git://anongit.gentoo.org/repo/gentoo.git#' /etc/portage/repos.conf/gentoo.conf
-cd /usr/portage/ && git clone --depth 1 git://anongit.gentoo.org/repo/gentoo.git -n && chown -R portage:portage gentoo && mv gentoo/.git . && rmdir gentoo && git checkout -- && git clean -d -x -f -q && emerge --sync
+cd /usr/portage/
+git clone --depth 1 git://anongit.gentoo.org/repo/gentoo.git -n && mv gentoo/.git .
+git checkout -f
+git clean -d -x -f -q
+chown -R portage:portage .
+rmdir gentoo
+emerge --sync
 
 #todo if local ups... rc-update add apcupsd.powerfail shutdown
 #todo configure snmp and add to startup
@@ -408,4 +413,4 @@ cd /
 ## umount somehow fails recently, but can not find usage, lets go lazy
 umount -l /mnt/gentoo  || exit 1
 # halt in QEMU guest instead of reboot to messure and autohandle on vm shutdown
-grep -q QEMU /proc/cpuinfo && halt || reboot
+grep -q setupdonehalt /proc/cmdline && halt || reboot
