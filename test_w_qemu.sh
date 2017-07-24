@@ -1,7 +1,17 @@
-netdev=tapKVMLx0
-tunctl -b -u $USER -t $netdev
-brctl addif br0 $netdev
-ip link set up $netdev
+netscript=
+if [[ "$1" == "-netdev" ]]; then
+# use -netdev argument to create and add that as interface to existing br0 for example: -netdev tapKVMLx0
+shift
+netdev=$1
+echo If you havent already, you should run the below as root
+echo   ip tuntap add dev $netdev mode tap user $USER
+echo   ip link set dev $netdev up master br0
+netscript="
+-net nic,macaddr=52:54:00:53:27:00,vlan=0,model=e1000
+-net tap,script=no,downscript=no,vlan=0,ifname=$netdev
+"
+shift
+fi
 # Create interface however you want to.
 # Recommendation to use a local proxy (ex squid) and transparent http redirection to save bandwidth
 # ex iptables transparent proxy:  iptables -t nat -A PREROUTING -i br0 -p tcp --dport 80 -j REDIRECT --to-port 3128
@@ -18,8 +28,7 @@ qemu-system-x86_64 -enable-kvm -M q35 -m 2048 -cpu host -smp 4,cores=4,sockets=1
 -drive id=d1,file=$DISK,format=raw,if=none,media=disk,index=1,aio=native,cache.direct=on,cache=writeback \
 -device ahci,id=ahci \
 -device ide-drive,drive=d1,bus=ahci.0 \
--net nic,macaddr=52:54:00:53:27:00,vlan=0,model=e1000 \
--net tap,script=no,downscript=no,vlan=0,ifname=$netdev \
+$netscript \
 -watchdog i6300esb -watchdog-action reset \
 -boot menu=on -usb -vga vmware -vnc 127.0.0.1:22 -k sv $*
 
