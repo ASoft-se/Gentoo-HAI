@@ -15,11 +15,13 @@ echo will be using $srciso as source
 # check for root since we are using tmpfs and need root to not risk getting incorrect permissions on the new squashfs
 if [[ $EUID -ne 0 ]]; then
   echo "This script must be run as root, please provide password to su" 1>&2
-  su -c "sh $0 $*" && [ "$1" == "auto" ] && rm kvm_lxgentootest.img && sh test_w_qemu.sh -cdrom install-amd64-mod.iso
+  su -c "sh $0 $*" && [ "$1" == "auto" ] && (rm kvm_lxgentootest.img; sh test_w_qemu.sh -cdrom install-amd64-mod.iso)
   exit
 fi
 echo emerge -uv1 p7zip cdrtools squashfs-tools
 set -x
+# unmount in case we got something left over since before
+[ -d gentoo_boot_cd ] && umount gentoo_boot_cd
 [ ! -d gentoo_boot_cd ] && (mkdir gentoo_boot_cd || exit 1)
 echo Make all changes in a tmpfs for performance, and saving on SSD writes.
 mount none -t tmpfs gentoo_boot_cd -o size=2G,nr_inodes=1048576
@@ -34,6 +36,7 @@ rm image.squashfs
 
 echo make changes...
 # Try to get rid of the PredictableNetworkInterfaceNames unpredicatability With it we never know what the nics are called.
+mkdir -p squashfs-root/lib64/udev/rules.d
 echo > squashfs-root/lib64/udev/rules.d/80-net-name-slot.rules
 echo > squashfs-root/lib64/udev/rules.d/80-net-setup-link.rules
 
