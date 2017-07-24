@@ -229,7 +229,7 @@ time emerge -uv -j8 gentoo-sources mlocate postfix iproute2 bind quagga dhcp atf
 mkdir /tftproot
 # reinstall eudev, TODO detect if we did switch above and only install if needed
 time emerge -uvN -j8 eudev
-time emerge -uv -j8 iptables grub bridge-utils v86d ebtables vconfig || bash
+time emerge -uv -j8 iptables grub bridge-utils ebtables vconfig || bash
 lspci
 ntpdate ntp.se
 #rerun make sure up2date
@@ -288,10 +288,12 @@ CONFIG_FB_UVESA=m
 
 " >> .config
 
+# v86d is dead so remove its initramfs
+sed -i 's#/usr/share/v86d/initramfs##' .config
 echo "x
 y
 " | make menuconfig
-time make -j16 bzImage modules && make modules_install install
+time make -j16 bzImage modules && make modules_install install || bash
 ls -lh /boot
 cd /boot
 ln -s vmlinuz-* vmlinuz && cd /usr/src/linux && make install
