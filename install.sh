@@ -148,9 +148,9 @@ echo "rc_sys=\"\"" >> etc/rc.conf
 
 echo "
 dhcp_eth0=\"nodns nontp nonis nosendhost\"
-#config_eth0=\"dhcp\"
-config_eth0=\"192.168.0.251/24\"
-routes_eth0=\"default via 192.168.0.254\"
+config_eth0=\"dhcp\"
+#config_eth0=\"192.168.0.251/24\"
+#routes_eth0=\"default via 192.168.0.254\"
 
 link_6to4=\"eth0\"
 config_6to4=\"ip6to4\"
