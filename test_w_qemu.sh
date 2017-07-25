@@ -20,12 +20,12 @@ fi
 # TODO auto handle inc of mac netdev and vnc port
 
 DISK=kvm_lxgentootest.img
-[ ! -f $DISK ] && qemu-img create $DISK 20G
+[ ! -f $DISK ] && qemu-img create -f qcow2 $DISK 20G
 
 (sleep 3; vncviewer :22) &
 
 qemu-system-x86_64 -enable-kvm -M q35 -m 2048 -cpu host -smp 4,cores=4,sockets=1 -name lxgentootest \
--drive id=d1,file=$DISK,format=raw,if=none,media=disk,index=1,aio=native,cache.direct=on,cache=writeback \
+-drive id=d1,file=$DISK,format=qcow2,if=none,media=disk,index=1,cache=unsafe \
 -device ahci,id=ahci \
 -device ide-drive,drive=d1,bus=ahci.0 \
 $netscript \
