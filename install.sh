@@ -310,12 +310,12 @@ root (hd0,0)
 #setup (hd0)
 #quit
 #" | grub
-grub2-install /dev/sda
+grub-install /dev/sda || grub2-install /dev/sda
 sed -i '/\^//' /etc/default/grub
 sed -i 's/^#GRUB_DISABLE_LINUX_UUID=[a-z]*/GRUB_DISABLE_LINUX_UUID=true/' /etc/default/grub
 sed -i 's/^#GRUB_CMDLINE_LINUX_DEFAULT=""/GRUB_CMDLINE_LINUX_DEFAULT="rootfstype=ext4 panic=30 vga=791"/' /etc/default/grub
 sed -i 's/^GRUB_TIMEOUT=10/GRUB_TIMEOUT=3/' /etc/default/grub
-grub2-mkconfig -o /boot/grub/grub.cfg
+grub-mkconfig -o /boot/grub/grub.cfg || grub2-mkconfig -o /boot/grub/grub.cfg
 
 cd /etc
 ln -fs /usr/share/zoneinfo/Europe/Stockholm localtime
