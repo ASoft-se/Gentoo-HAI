@@ -286,6 +286,10 @@ CONFIG_FB_VESA=y
 # and make uvesafb a module instead
 CONFIG_FB_UVESA=m
 
+# make sure the kernel supports EFI boot
+CONFIG_EFI_STUB=y
+CONFIG_FB_EFI=y
+
 " >> .config
 
 # v86d is dead so remove its initramfs
