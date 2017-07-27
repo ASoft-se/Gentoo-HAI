@@ -8,7 +8,7 @@
 # root password will be set to SET_PASS parameter or "password" if not given
 # ssh server will be started on the live medium directly after the password have been set.
 #
-# Partitioning will be 100MB boot(ext2) 4GB Swap and the rest root(ext4) on /dev/sda
+# Partitioning will be 100MB boot(ext2 or vfat if EFI) 4GB Swap and the rest root(ext4) on /dev/sda
 #
 # Hostname will be set to the same as the host
 # Keyboard layout will be configured to be swedish (sv-latin1) and timezone Europe/Stockholm (and ntp.se will be used as a timeserver)
@@ -31,6 +31,17 @@ set -x
 # Try to update to a correct system time
 ntpdate ntp.se &
 
+PLATFORM=pcbios
+boottype=83
+bootmnt=/boot
+bootfstype=ext2
+if [ -d /sys/firmware/efi ]; then
+  PLATFORM=efi
+  boottype=c
+  bootmnt=/boot/efi
+  bootfstype=vfat
+fi
+
 #Create a 100MB boot 4GB Swap and the rest root on ${IDEV}
 echo "
 p
@@ -42,7 +53,7 @@ p
 +100M
 t
 L
-83
+${boottype}
 n
 p
 
@@ -82,14 +93,14 @@ mkswap -L swap0 ${IDEV}2 || exit 1
 
 swapon -p1 ${IDEV}2 || exit 1
 
-mkfs.ext2 ${IDEV}1 || exit 1
+mkfs.${bootfstype} ${IDEV}1 || exit 1
 mkfs.ext4 ${IDEV}3 || exit 1
 
 #cat /proc/mdstat
 
 mount ${IDEV}3 /mnt/gentoo -o discard,noatime || exit 1
-mkdir /mnt/gentoo/boot || exit 1
-mount ${IDEV}1 /mnt/gentoo/boot || exit 1
+mkdir -p /mnt/gentoo${bootmnt} || exit 1
+mount ${IDEV}1 /mnt/gentoo${bootmnt} || exit 1
 
 cd /mnt/gentoo || exit 1
 #cleanup in case of previous try...
@@ -113,7 +124,7 @@ hostname=\"$(hostname)\"
 " > etc/conf.d/hostname
 #change fstab to match disk layout
 echo -e "
-${FSTABDEV}1		/boot		ext2		noauto,noatime	1 2
+${FSTABDEV}1		${bootmnt}		${bootfstype}		noauto,noatime	1 2
 ${FSTABDEV}3		/		ext4		discard,noatime	0 1
 LABEL=swap0		none		swap		sw		0 0
 
