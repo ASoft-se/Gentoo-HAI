@@ -140,7 +140,8 @@ MAKECONF=etc/portage/make.conf
 echo $MAKECONF
 
 # remove bindist from USE in make.conf
-sed -i 's/bindist //' $MAKECONF
+sed -i 's/bindist//' $MAKECONF
+# CPU_FLAGS_X86 should be handled but must be done inside chroot, see below
 
 #Updating Makefile
 echo >> $MAKECONF
@@ -222,9 +223,12 @@ grep -q sys-fs/eudev /etc/portage/package.use/* || echo sys-fs/eudev hwdb gudev 
 echo sys-fs/udev >> /etc/portage/package.mask/udev &
 emerge -C --quiet-unmerge-warn sys-fs/udev &
 # will reinstall eudev further down after kernel sources
-time emerge -uvN -j4 --keep-going y sys-fs/eudev portage python-updater gentoolkit
+time emerge -uvN -j4 --keep-going y sys-fs/eudev portage python-updater gentoolkit cpuid2cpuflags
 #snmp support in current apcupsd is buggy
 grep -q sys-power/apcupsd /etc/portage/package.use/* || echo sys-power/apcupsd -snmp >> /etc/portage/package.use/apcupsd
+
+#add new CPU_FLAGS_X86 line into make.conf
+cpuinfo2cpuflags-x86 >> $MAKECONF
 
 #start out with being up2date
 #we expect that this can fail
