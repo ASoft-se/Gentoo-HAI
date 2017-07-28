@@ -146,7 +146,7 @@ sed -i 's/bindist//' $MAKECONF
 #Updating Makefile
 echo >> $MAKECONF
 echo "# add valid -march= to CFLAGS" >> $MAKECONF
-echo "MAKEOPTS=\"-j4\"" >> $MAKECONF
+echo "MAKEOPTS=\"-j$(nproc)\"" >> $MAKECONF
 echo "FEATURES=\"parallel-fetch\"" >> $MAKECONF
 # tty-helpers is needed py apcupsd
 echo "USE=\"\${USE} -X -bindist python qemu gnutls idn iproute2 logrotate snmp tty-helpers\"" >> $MAKECONF
