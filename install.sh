@@ -18,7 +18,7 @@
 mkdir -p /mnt/gentoo
 
 IDEV=${IDEV:-/dev/sda}
-FSTABDEV=${IDEV}
+IDEVP=${IDEV}
 
 if [ "$(hostname)" == "livecd" ]; then
   echo Change hostname before you continue since it will be used for the created host.
@@ -88,19 +88,19 @@ w
 #mdadm -Cv /dev/md3 -l1 -n2 /dev/sd[ab]3 --metadata=0.90 || exit 1
 #mdadm -Cv /dev/md4 -l4 -n3 /dev/sd[ab]4 missing --metadata=0.90 || exit 1
 
-mkswap -L swap0 ${IDEV}2 || exit 1
+mkswap -L swap0 ${IDEVP}2 || exit 1
 #mkswap -L swap1 /dev/sdb2 || exit 1
 
-swapon -p1 ${IDEV}2 || exit 1
+swapon -p1 ${IDEVP}2 || exit 1
 
-mkfs.${bootfstype} ${IDEV}1 || exit 1
-mkfs.ext4 ${IDEV}3 || exit 1
+mkfs.${bootfstype} ${IDEVP}1 || exit 1
+mkfs.ext4 ${IDEVP}3 || exit 1
 
 #cat /proc/mdstat
 
-mount ${IDEV}3 /mnt/gentoo -o discard,noatime || exit 1
+mount ${IDEVP}3 /mnt/gentoo -o discard,noatime || exit 1
 mkdir -p /mnt/gentoo${bootmnt} || exit 1
-mount ${IDEV}1 /mnt/gentoo${bootmnt} || exit 1
+mount ${IDEVP}1 /mnt/gentoo${bootmnt} || exit 1
 
 cd /mnt/gentoo || exit 1
 #cleanup in case of previous try...
@@ -124,8 +124,8 @@ hostname=\"$(hostname)\"
 " > etc/conf.d/hostname
 #change fstab to match disk layout
 echo -e "
-${FSTABDEV}1		${bootmnt}		${bootfstype}		noauto,noatime	1 2
-${FSTABDEV}3		/		ext4		discard,noatime	0 1
+${IDEVP}1		${bootmnt}		${bootfstype}		noauto,noatime	1 2
+${IDEVP}3		/		ext4		discard,noatime	0 1
 LABEL=swap0		none		swap		sw		0 0
 
 none			/var/tmp	tmpfs		size=4G,nr_inodes=1M 0 0
@@ -344,7 +344,7 @@ timeout 3
 title Gentoo
 root (hd0,0)
 # video=uvesafb:1024x768-32 is not stable on ex intel integrated gfx
-#kernel /vmlinuz root=${FSTABDEV}3 ro rootfstype=ext4 panic=30 vga=791" >> /boot/grub/grub.conf
+#kernel /vmlinuz root=${IDEVP}3 ro rootfstype=ext4 panic=30 vga=791" >> /boot/grub/grub.conf
 #mcedit /boot/grub/grub.conf
 #echo "root (hd0,0)
 #setup (hd0)
