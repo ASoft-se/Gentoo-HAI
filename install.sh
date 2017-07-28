@@ -223,7 +223,7 @@ grep -q sys-fs/eudev /etc/portage/package.use/* || echo sys-fs/eudev hwdb gudev 
 echo sys-fs/udev >> /etc/portage/package.mask/udev &
 emerge -C --quiet-unmerge-warn sys-fs/udev &
 # will reinstall eudev further down after kernel sources
-time emerge -uvN -j4 --keep-going y sys-fs/eudev portage python-updater gentoolkit cpuid2cpuflags
+time emerge -uvN -j8 --keep-going y sys-fs/eudev portage python-updater gentoolkit cpuid2cpuflags
 #snmp support in current apcupsd is buggy
 grep -q sys-power/apcupsd /etc/portage/package.use/* || echo sys-power/apcupsd -snmp >> /etc/portage/package.use/apcupsd
 
@@ -415,7 +415,7 @@ sleep 5 || bash
 
 # fix problem with apcupsd...
 [ -d /run/lock ] || mkdir /run/lock
-emerge -uv -j4 net-snmp squid vsftpd dev-vcs/git subversion php openvpn apcupsd iotop iftop dd-rescue tcpdump nmap netkit-telnetd dmidecode hdparm parted || bash
+emerge -uv -j8 net-snmp squid vsftpd dev-vcs/git subversion php openvpn apcupsd iotop iftop dd-rescue tcpdump nmap netkit-telnetd dmidecode hdparm parted || bash
 
 # move to git based portage tree
 sed -i 's#sync-type = rsync#sync-type = git#' /etc/portage/repos.conf/gentoo.conf
