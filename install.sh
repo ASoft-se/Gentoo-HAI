@@ -17,8 +17,16 @@
 # Make sure our root mountpoint exists
 mkdir -p /mnt/gentoo
 
+if [ -b /dev/nvme0n1 ]; then
+  IDEV=${IDEV:-/dev/nvme0n1}
+  NVMETOOLS=sys-apps/nvme-cli
+  NVMEKERNEL=CONFIG_BLK_DEV_NVME=y
+fi
+
 IDEV=${IDEV:-/dev/sda}
 IDEVP=${IDEV}
+# if disk name ends with number, then partition is sepparated with p
+echo ${IDEV} | grep -q -e "[0-9]$" && IDEVP=${IDEV}p
 
 if [ "$(hostname)" == "livecd" ]; then
   echo Change hostname before you continue since it will be used for the created host.
@@ -226,6 +234,7 @@ emerge -C --quiet-unmerge-warn sys-fs/udev &
 time emerge -uvN -j8 --keep-going y sys-fs/eudev portage python-updater gentoolkit cpuid2cpuflags
 #snmp support in current apcupsd is buggy
 grep -q sys-power/apcupsd /etc/portage/package.use/* || echo sys-power/apcupsd -snmp >> /etc/portage/package.use/apcupsd
+[[ ${NVMETOOLS} ]] && (grep -q nvme /etc/portage/package.keywords/* || echo ${NVMETOOLS} > /etc/portage/package.keywords/nvme) &
 
 #add new CPU_FLAGS_X86 line into make.conf
 cpuinfo2cpuflags-x86 >> $MAKECONF
@@ -240,7 +249,7 @@ etc-update --automode -5
 
 [ -f /etc/portage/package.mask/gentoo.conf ] || cp /usr/share/portage/config/repos.conf /etc/portage/repos.conf/gentoo.conf
 
-time emerge -uv -j8 gentoo-sources mlocate postfix iproute2 bind bind-tools quagga dhcp atftp dhcpcd app-misc/mc pciutils usbutils smartmontools syslog-ng vixie-cron ntp lsof || bash
+time emerge -uv -j8 gentoo-sources mlocate postfix iproute2 bind bind-tools quagga dhcp atftp dhcpcd app-misc/mc pciutils usbutils smartmontools syslog-ng vixie-cron ntp lsof ${NVMETOOLS} || bash
 mkdir /tftproot
 # reinstall eudev, TODO detect if we did switch above and only install if needed
 time emerge -uvN -j8 eudev
@@ -325,6 +334,9 @@ CONFIG_IP_NF_TARGET_MASQUERADE=m
 CONFIG_IP_NF_TARGET_REDIRECT=m
 CONFIG_NF_TABLES_IPV6=m
 CONFIG_NFT_CHAIN_ROUTE_IPV6=m
+
+# if we have nvme hardware
+${NVMEKERNEL}
 
 " >> .config
 
