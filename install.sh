@@ -17,7 +17,7 @@
 # Make sure our root mountpoint exists
 mkdir -p /mnt/gentoo
 
-IDEV=/dev/sda
+IDEV=${IDEV:-/dev/sda}
 FSTABDEV=${IDEV}
 
 if [ "$(hostname)" == "livecd" ]; then
