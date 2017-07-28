@@ -109,10 +109,10 @@ FILE=$(wget -q http://distfiles.gentoo.org/releases/amd64/autobuilds/current-sta
 [ -z "$FILE" ] && exit 1
 echo download latest stage file $FILE
 wget http://distfiles.gentoo.org/releases/amd64/autobuilds/current-stage3-amd64/$FILE || exit 1
-mkdir -p usr
 time tar -xjpf stage3-*bz2 &
 
 (wget http://distfiles.gentoo.org/releases/snapshots/current/portage-latest.tar.bz2 && \
+  mkdir -p usr && \
   cd usr && \
   time tar -xjf ../portage-latest.tar.bz2) || exit 1
 wait
