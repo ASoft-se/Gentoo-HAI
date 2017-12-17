@@ -351,17 +351,12 @@ cd /boot
 ln -s vmlinuz-* vmlinuz && cd /usr/src/linux && make install
 ls -lh /boot
 echo "
-# added auto fix timeout ?
 timeout 3
 title Gentoo
 root (hd0,0)
 # video=uvesafb:1024x768-32 is not stable on ex intel integrated gfx
 #kernel /vmlinuz root=${IDEVP}3 ro rootfstype=ext4 panic=30 vga=791" >> /boot/grub/grub.conf
-#mcedit /boot/grub/grub.conf
-#echo "root (hd0,0)
-#setup (hd0)
-#quit
-#" | grub
+
 grub-install /dev/sda || grub2-install /dev/sda
 sed -i '/\^//' /etc/default/grub
 sed -i 's/^#GRUB_DISABLE_LINUX_UUID=[a-z]*/GRUB_DISABLE_LINUX_UUID=true/' /etc/default/grub
