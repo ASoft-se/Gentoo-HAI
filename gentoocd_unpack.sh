@@ -33,6 +33,13 @@ unsquashfs image.squashfs || exit 1
 rm image.squashfs
 # mv squashfs-root ~/squashroot
 
+# we will rebuild the efimg
+rm gentoo.efimg
+mv gentoo.efimg.mountPoint boot
+rm boot/gentoo.igz boot/gentoo
+mkdir boot
+# copy files from our cd source
+cp -rv ../cdsource/* .
 
 echo make changes...
 # Try to get rid of the PredictableNetworkInterfaceNames unpredicatability With it we never know what the nics are called.
@@ -62,13 +69,44 @@ fi
 
 mksquashfs squashfs-root image.squashfs || exit 1
 rm -rf squashfs-root
+#/usr/sbin/mkfs.vfat -v -C install-amd64-mod.usb $(( ($(stat -c %s install-amd64-mod.iso) / 1024 + 511) / 32 * 32 ))
+# rebuild efimg https://gitweb.gentoo.org/proj/catalyst.git/tree/targets/support/create-iso.sh#n256
+clst_target_path=.
+	    if [ ! -e "${clst_target_path}/gentoo.efimg" ]
+	    then
+		iaSizeTemp=$(du -sk "${clst_target_path}/boot" 2>/dev/null)
+		iaSizeB=$(echo ${iaSizeTemp} | cut '-d ' -f1)
+		iaSize=$((${iaSizeB}+32+32)) # Add slack
+
+		dd if=/dev/zero of="${clst_target_path}/gentoo.efimg" bs=1k \
+		    count=${iaSize}
+		mkfs.vfat -F 16 -n GENTOO "${clst_target_path}/gentoo.efimg"
+
+		mkdir "${clst_target_path}/gentoo.efimg.mountPoint"
+		mount -t vfat -o loop "${clst_target_path}/gentoo.efimg" \
+		    "${clst_target_path}/gentoo.efimg.mountPoint"
+
+		echo "Populating EFI image"
+		cp -rv "${clst_target_path}"/boot/* \
+		    "${clst_target_path}/gentoo.efimg.mountPoint"
+
+		umount "${clst_target_path}/gentoo.efimg.mountPoint"
+		rmdir "${clst_target_path}/gentoo.efimg.mountPoint"
+		if [ ! -e "${clst_target_path}/boot/grub/stage2_eltorito" ]
+		then
+		    echo "Removing /boot"
+		    rm -rf "${clst_target_path}/boot"
+		fi
+	    else
+		echo "Found populated EFI image at \
+		    ${clst_target_path}/gentoo.efimg"
+	    fi
+
 cd ..
-mkisofs -R -b isolinux/isolinux.bin -no-emul-boot -boot-load-size 4 -boot-info-table -iso-level 4 \
- -hide-rr-moved -c isolinux/boot.cat -o install-amd64-mod.iso gentoo_boot_cd || exit 1
+echo "Creating ISO using both ISOLINUX and EFI bootloader"
+mkisofs -J -R -l -V "Gentoo-HAI" -o install-amd64-mod.iso \
+ -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table \
+ -eltorito-alt-boot -b gentoo.efimg -c boot.cat -no-emul-boot -z gentoo_boot_cd/
 
 umount gentoo_boot_cd
 rm -rf gentoo_boot_cd
-
-#something else if we use grub...
-
-#from www.gentooo-wiki.info/SSH-ebabled_installation_CD
