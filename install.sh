@@ -234,7 +234,7 @@ emerge -C --quiet-unmerge-warn sys-fs/udev &
 time emerge -uvN -j8 --keep-going y sys-fs/eudev portage gentoolkit cpuid2cpuflags || shell
 #snmp support in current apcupsd is buggy
 grep -q sys-power/apcupsd /etc/portage/package.use/* || echo sys-power/apcupsd -snmp >> /etc/portage/package.use/apcupsd
-[[ ${NVMETOOLS} ]] && (grep -q nvme /etc/portage/package.keywords/* || echo ${NVMETOOLS} > /etc/portage/package.keywords/nvme) &
+[[ ! -z "${NVMETOOLS}" ]] && (grep -q nvme /etc/portage/package.keywords/* || echo ${NVMETOOLS} > /etc/portage/package.keywords/nvme) &
 
 #add new CPU_FLAGS_X86 line into make.conf
 cpuinfo2cpuflags-x86 >> $MAKECONF
