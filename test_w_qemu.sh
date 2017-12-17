@@ -24,13 +24,17 @@ DISK=kvm_lxgentootest.qcow2
 
 (sleep 3; vncviewer :22) &
 
-qemu-system-x86_64 -enable-kvm -M q35 -m 2048 -cpu host -smp 4,cores=4,sockets=1 -name lxgentootest \
+#efibios="-bios usr/share/edk2.git/ovmf-x64/OVMF-pure-efi.fd"
+
+qemu-system-x86_64 -enable-kvm -M q35 -m 2048 -cpu host -smp 8,cores=8,sockets=1 -name lxgentootest \
 -drive id=d1,file=$DISK,format=qcow2,if=none,media=disk,index=1,cache=unsafe \
 -device ahci,id=ahci \
 -device ide-drive,drive=d1,bus=ahci.0 \
 $netscript \
 -watchdog i6300esb -watchdog-action reset \
--boot menu=on -usb -vga vmware -vnc 127.0.0.1:22 -k sv $*
+-boot menu=on -usb -vga vmware -vnc 127.0.0.1:22 -k sv \
+${efibios} \
+$*
 
 # Extra lines to add if using multiple disks with ahci
 #-drive id=d2,file=kvm_lx2.img,if=none,media=disk,index=3,cache=writeback \
