@@ -1,14 +1,12 @@
-#!/bin/sh
-[ -f /mnt/cdrom/g-install.sh ] && cp /mnt/cdrom/g-install.sh root/
 
-cat >> /newroot/root/.bashrc << EOF
-if [ "\$(hostname)" == "livecd" ] && (tty | grep -q tty1\\$)
+if [ "$(hostname)" == "livecd" ] && (tty | grep -q tty1\$)
 then
+  [ -f /mnt/cdrom/g-install.sh ] && cp /mnt/cdrom/g-install.sh .
   setterm -blank 0
   hostname gtestinst
   #IF NOT SET_PASS is set then the password will be "password"
-  SET_PASS=\${SET_PASS:-password}
-  echo -e "\${SET_PASS}\n\${SET_PASS}\n" | passwd
+  SET_PASS=${SET_PASS:-password}
+  echo -e "${SET_PASS}\n${SET_PASS}\n" | passwd
 
   ip link set eth0 up && sleep 2
   dhcpcd
@@ -27,4 +25,3 @@ then
   echo maybe fix somethings like passwd before continue?
   grep -q autoinstall /proc/cmdline && sh g-install.sh
 fi
-EOF

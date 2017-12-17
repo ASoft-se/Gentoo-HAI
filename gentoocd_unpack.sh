@@ -40,8 +40,7 @@ mkdir -p squashfs-root/lib64/udev/rules.d
 echo > squashfs-root/lib64/udev/rules.d/80-net-name-slot.rules
 echo > squashfs-root/lib64/udev/rules.d/80-net-setup-link.rules
 
-cp ../gentoo_cdupdate.sh cdupdate.sh
-chmod a+x cdupdate.sh
+cat ../gentoo_cd_bashrc_addon >> squashfs-root/root/.bashrc
 # Change the default to gentoo cd instead of local boot
 sed -i 's/ontimeout localhost/ontimeout gentoo/' isolinux/isolinux.cfg
 # remove do keymap
