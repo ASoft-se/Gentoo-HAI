@@ -19,7 +19,7 @@ fi
 # start with -cdrom install-amd64-mod.iso to boot from livecd
 # TODO auto handle inc of mac netdev and vnc port
 
-DISK=kvm_lxgentootest.img
+DISK=kvm_lxgentootest.qcow2
 [ ! -f $DISK ] && qemu-img create -f qcow2 $DISK 20G
 
 (sleep 3; vncviewer :22) &

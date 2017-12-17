@@ -15,7 +15,7 @@ echo will be using $srciso as source
 # check for root since we are using tmpfs and need root to not risk getting incorrect permissions on the new squashfs
 if [[ $EUID -ne 0 ]]; then
   echo "This script must be run as root, please provide password to su" 1>&2
-  su -c "sh $0 $*" && [ "$1" == "auto" ] && (rm kvm_lxgentootest.img; sh test_w_qemu.sh -cdrom install-amd64-mod.iso)
+  su -c "sh $0 $*" && [ "$1" == "auto" ] && (rm kvm_lxgentootest.qcow2; sh test_w_qemu.sh -cdrom install-amd64-mod.iso)
   exit
 fi
 echo emerge -uv1 p7zip cdrtools squashfs-tools
