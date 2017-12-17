@@ -231,7 +231,7 @@ grep -q sys-fs/eudev /etc/portage/package.use/* || echo sys-fs/eudev hwdb gudev 
 echo sys-fs/udev >> /etc/portage/package.mask/udev &
 emerge -C --quiet-unmerge-warn sys-fs/udev &
 # will reinstall eudev further down after kernel sources
-time emerge -uvN -j8 --keep-going y sys-fs/eudev portage python-updater gentoolkit cpuid2cpuflags
+time emerge -uvN -j8 --keep-going y sys-fs/eudev portage gentoolkit cpuid2cpuflags || shell
 #snmp support in current apcupsd is buggy
 grep -q sys-power/apcupsd /etc/portage/package.use/* || echo sys-power/apcupsd -snmp >> /etc/portage/package.use/apcupsd
 [[ ${NVMETOOLS} ]] && (grep -q nvme /etc/portage/package.keywords/* || echo ${NVMETOOLS} > /etc/portage/package.keywords/nvme) &
@@ -243,7 +243,6 @@ cpuinfo2cpuflags-x86 >> $MAKECONF
 #we expect that this can fail
 time emerge -uvDN -j4 --keep-going y world
 etc-update --automode -5
-time python-updater -v -- -j4 || bash
 time revdep-rebuild -vi -- -j4
 etc-update --automode -5
 
@@ -259,7 +258,6 @@ ntpdate ntp.se
 #rerun make sure up2date
 time emerge -uvDN -j4 world || bash
 etc-update --automode -5
-time python-updater -v -- -j4 || bash
 time revdep-rebuild -vi -- -j4
 etc-update --automode -5
 
