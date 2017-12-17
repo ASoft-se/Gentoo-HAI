@@ -15,6 +15,8 @@ then
   /etc/init.d/sshd start &
   # wait a bit for everything to come up, and oh the (Un)PredictableNetworkInterfaceNames Madness will make sure eth0 above no longer works.
   while : ; do
+    # ping does not work in QEMU default network, su use http get instead.
+    curl -q raw.github.com > /dev/null && break
     ping -c 1 raw.github.com && break
     sleep 2
   done
