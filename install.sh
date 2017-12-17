@@ -445,7 +445,6 @@ ip -6 a | grep -q " 200[1-2]:" || rc-update add net.6to4 default
 #sleep 5 || bash
 
 umount /var/tmp
-rm chrootstart.sh
 EOF
 chmod a+x chrootstart.sh
 
