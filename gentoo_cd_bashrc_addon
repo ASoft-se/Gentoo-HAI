@@ -14,14 +14,15 @@ then
   # wait a bit for everything to come up, and oh the (Un)PredictableNetworkInterfaceNames Madness will make sure eth0 above no longer works.
   while : ; do
     # ping does not work in QEMU default network, su use http get instead.
-    curl -q raw.github.com > /dev/null && break
+    curl -s raw.github.com > /dev/null && break
     ping -c 1 raw.github.com && break
     sleep 2
   done
   # Try to update to a correct system time
   ntpdate ntp.se &
-  [ -f g-install.sh ] || wget https://raw.github.com/ASoft-se/Gentoo-HAI/master/install.sh? -O g-install.sh
-  echo We just downloaded g-install.sh that can be used to make a install...
-  echo maybe fix somethings like passwd before continue?
+  if [ ! -f g-install.sh ]; then
+    wget https://raw.github.com/ASoft-se/Gentoo-HAI/master/install.sh? -O g-install.sh
+    echo We just downloaded g-install.sh that can be used to make a install...
+  fi
   grep -q autoinstall /proc/cmdline && sh g-install.sh
 fi
