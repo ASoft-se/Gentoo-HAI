@@ -112,18 +112,23 @@ mount ${IDEVP}1 /mnt/gentoo${bootmnt} || exit 1
 
 cd /mnt/gentoo || exit 1
 #cleanup in case of previous try...
-[ -f *.bz2 ] && rm *.bz2
-FILE=$(wget -q http://distfiles.gentoo.org/releases/amd64/autobuilds/current-stage3-amd64/ -O - | grep -o -e "stage3-amd64-20\w*.tar.bz2" | uniq)
-[ -z "$FILE" ] && exit 1
+[ -f *.tar.{bz2,xz} ] && rm *.tar.{bz2,xz}
+FILE=$(wget -q http://distfiles.gentoo.org/releases/amd64/autobuilds/current-stage3-amd64/ -O - | grep -o -E 'stage3-amd64-20\w*\.tar\.(bz2|xz)' | uniq)
+[ -z "$FILE" ] && echo No stage3 found on distfiles && exit 1
 echo download latest stage file $FILE
 wget http://distfiles.gentoo.org/releases/amd64/autobuilds/current-stage3-amd64/$FILE || exit 1
-time tar -xjpf stage3-*bz2 &
+time tar xpf $FILE --xattrs-include='*.*' --numeric-owner &
 
-(wget http://distfiles.gentoo.org/releases/snapshots/current/portage-latest.tar.bz2 && \
+# grab .xz first if that is missing then grab .bz2 instead - just in case
+PORTAGE_FILE=$(wget -q http://distfiles.gentoo.org/releases/snapshots/current/ -O - | grep -o -E 'portage-latest\.tar\.xz' | uniq)
+[ -z "$PORTAGE_FILE" ] PORTAGE_FILE=$(wget -q http://distfiles.gentoo.org/releases/snapshots/current/ -O - | grep -o -E 'portage-latest\.tar\.bz2' | uniq)
+[ -z "$PORTAGE_FILE" ] && echo No portage tree found on distfiles && exit 1
+(wget http://distfiles.gentoo.org/releases/snapshots/current/$PORTAGE_FILE && \
   mkdir -p usr && \
   cd usr && \
-  time tar -xjf ../portage-latest.tar.bz2) || exit 1
+  time tar xpf ../$PORTAGE_FILE) || exit 1
 wait
+rm $FILE $PORTAGE_FILE
 cp /etc/resolv.conf etc
 # make sure we are done with root unpack...
 
@@ -206,7 +211,6 @@ env-update
 source /etc/profile
 echo -e "${SET_PASS}\n${SET_PASS}\n" | passwd
 set -x
-rm *.bz2
 mount /var/tmp
 
 # fix for new mtab init
