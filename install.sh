@@ -424,7 +424,7 @@ sleep 5 || bash
 
 # fix problem with apcupsd...
 [ -d /run/lock ] || mkdir /run/lock
-emerge -uv -j8 net-snmp squid vsftpd dev-vcs/git subversion php openvpn apcupsd iotop iftop dd-rescue tcpdump nmap netkit-telnetd dmidecode hdparm parted || bash
+emerge -uv -j8 net-snmp squid vsftpd dev-vcs/git subversion php openvpn apcupsd iotop iftop ddrescue tcpdump nmap netkit-telnetd dmidecode hdparm parted || bash
 
 # move to git based portage tree
 sed -i 's#sync-type = rsync#sync-type = git#' /etc/portage/repos.conf/gentoo.conf
