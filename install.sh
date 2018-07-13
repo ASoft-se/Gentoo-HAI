@@ -112,7 +112,7 @@ mount ${IDEVP}1 /mnt/gentoo${bootmnt} || exit 1
 
 cd /mnt/gentoo || exit 1
 #cleanup in case of previous try...
-[ -f *.tar.{bz2,xz} ] && rm *.tar.{bz2,xz}
+[ -f "*.tar.{bz2,xz}" ] && rm *.tar.{bz2,xz}
 FILE=$(wget -q http://distfiles.gentoo.org/releases/amd64/autobuilds/current-stage3-amd64/ -O - | grep -o -E 'stage3-amd64-20\w*\.tar\.(bz2|xz)' | uniq)
 [ -z "$FILE" ] && echo No stage3 found on distfiles && exit 1
 echo download latest stage file $FILE
