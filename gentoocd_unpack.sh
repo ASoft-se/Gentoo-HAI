@@ -18,7 +18,7 @@ if [[ $EUID -ne 0 ]]; then
   su -c "sh $0 $*" && [ "$1" == "auto" ] && (rm kvm_lxgentootest.qcow2; sh test_w_qemu.sh -cdrom install-amd64-mod.iso $2)
   exit
 fi
-echo emerge -uv1 p7zip cdrtools squashfs-tools
+echo emerge -uv1 cdrtools squashfs-tools
 set -x
 # unmount in case we got something left over since before
 [ -d gentoo_boot_cd ] && umount gentoo_boot_cd
@@ -26,7 +26,9 @@ set -x
 echo Make all changes in a tmpfs for performance, and saving on SSD writes.
 mount none -t tmpfs gentoo_boot_cd -o size=2G,nr_inodes=1048576
 cd gentoo_boot_cd || exit 1
-7z x ../$srciso || exit 1
+# 7z x is broken in version 16.02, it does work with 9.20
+# use isoinfo extraction from cdrtools instead
+isoinfo -R -i ../$srciso -X || exit 1
 rm -rf "[BOOT]"
 
 unsquashfs image.squashfs || exit 1
