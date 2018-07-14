@@ -234,8 +234,8 @@ grep -q sys-fs/eudev /etc/portage/package.use/* || echo sys-fs/eudev hwdb gudev 
 # mask old udev so it is not pulled in.
 echo sys-fs/udev >> /etc/portage/package.mask/udev &
 emerge -C --quiet-unmerge-warn sys-fs/udev &
-# will reinstall eudev further down after kernel sources
-time emerge -uvN -j8 --keep-going y sys-fs/eudev portage gentoolkit cpuid2cpuflags || shell
+# will reinstall eudev further down after kernel sources, don't add this to world file
+time emerge -uvN1 -j8 --keep-going y sys-fs/eudev portage gentoolkit cpuid2cpuflags || shell
 #snmp support in current apcupsd is buggy
 grep -q sys-power/apcupsd /etc/portage/package.use/* || echo sys-power/apcupsd -snmp >> /etc/portage/package.use/apcupsd
 [[ ! -z "${NVMETOOLS}" ]] && (grep -q nvme /etc/portage/package.keywords/* || echo ${NVMETOOLS} > /etc/portage/package.keywords/nvme) &
