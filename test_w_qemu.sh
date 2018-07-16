@@ -1,4 +1,6 @@
 netscript=
+netscript="-nic user,model=virtio"
+
 if [[ "$1" == "-netdev" ]]; then
 # use -netdev argument to create and add that as interface to existing br0 for example: -netdev tapKVMLx0
 shift
