@@ -18,6 +18,8 @@ if [[ $EUID -ne 0 ]]; then
   su -c "sh $0 $*" && [ "$1" == "auto" ] && (rm kvm_lxgentootest.qcow2; sh test_w_qemu.sh -cdrom install-amd64-mod.iso $2)
   exit
 fi
+# files that contains kernelcmdlines that should be patched
+bootmenufiles="isolinux/isolinux.cfg boot/grub/grub-512.cfg"
 echo emerge -uv1 cdrtools squashfs-tools
 set -x
 # unmount in case we got something left over since before
@@ -50,16 +52,16 @@ echo > squashfs-root/lib64/udev/rules.d/80-net-name-slot.rules
 echo > squashfs-root/lib64/udev/rules.d/80-net-setup-link.rules
 
 cat ../gentoo_cd_bashrc_addon >> squashfs-root/root/.bashrc
-# Change the default to gentoo cd instead of local boot
+# Change the default of ISOLINUX config to gentoo cd instead of local boot
 sed -i 's/ontimeout localhost/ontimeout gentoo/' isolinux/isolinux.cfg
 # remove do keymap
-sed -i 's/ dokeymap / /' isolinux/isolinux.cfg
+sed -i 's/ dokeymap / /' $bootmenufiles
 # default to swedish keyboard and add autoinstall TODO make it settable
-sed -i 's/vga=791$/vga=791 keymap=se autoinstall/' isolinux/isolinux.cfg
+sed -i 's/vga=791$/vga=791 keymap=se autoinstall/' $bootmenufiles
 
 if [ "$1" == "auto" ]; then
   echo running with auto - wont stop
-  sed -i 's/ autoinstall$/ autoinstall setupdonehalt/' isolinux/isolinux.cfg
+  sed -i 's/ autoinstall$/ autoinstall setupdonehalt/' $bootmenufiles
   cp ../install.sh g-install.sh
 else
   echo Giving user possibility to modify boot settings - if you dont want this add auto to the $0 commandline
