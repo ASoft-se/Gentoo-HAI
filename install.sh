@@ -172,22 +172,30 @@ echo "rc_logger=\"YES\"" >> etc/rc.conf
 echo "rc_sys=\"\"" >> etc/rc.conf
 
 echo "
-dhcp_eth0=\"nodns nontp nonis nosendhost\"
-config_eth0=\"dhcp\"
-#config_eth0=\"192.168.0.251/24\"
-#routes_eth0=\"default via 192.168.0.254\"
+# https://wiki.gentoo.org/wiki/Netifrc/Brctl_Migration
+config_br0=\"dhcp\"
+bridge_br0=\"eth0\"
+bridge_forward_delay_br0=0
+bridge_stp_state_br0=0
+dhcp_br0=\"nodns nontp nonis nosendhost\"
 
-link_6to4=\"eth0\"
+#config_br0=\"192.168.0.251/24\"
+#routes_br0=\"default via 192.168.0.254\"
+
+config_eth0="null"
+rc_net_br0_need="net.eth0"
+
+link_6to4=\"br0\"
 config_6to4=\"ip6to4\"
-rc_net_6to4_need=\"net.eth0\"
+rc_net_6to4_need=\"net.br0\"
 rc_net_6to4_provide=\"!net\"
 
 config_eth1=\"null\"
 bridge_br1=\"eth1\"
 
 config_br1=\"10.100.1.254/24\"
-brctl_br1=\"setfd 0
-stp off\"
+bridge_forward_delay_br1=0
+bridge_stp_state_br1=0
 
 vlans_eth1=\"101 120 140\"
 config_eth1_101=\"null\"
@@ -256,7 +264,7 @@ time emerge -uv -j8 gentoo-sources mlocate postfix iproute2 bind bind-tools quag
 mkdir /tftproot
 # reinstall eudev, TODO detect if we did switch above and only install if needed
 time emerge -uvN -j8 eudev
-time emerge -uv -j8 iptables grub bridge-utils ebtables vconfig || bash
+time emerge -uv -j8 iptables grub ebtables vconfig || bash
 lspci
 ntpdate ntp.se
 #rerun make sure up2date
@@ -392,6 +400,7 @@ dispatch-conf
 sed -i 's/^c1:12345:respawn:\/sbin\/agetty .* tty1 linux\$/& --noclear/' /etc/inittab || bash
 cd /etc/init.d
 ln -s net.lo net.eth0
+ln -s net.lo net.br0
 ln -s net.lo net.6to4
 rc-update add syslog-ng default
 rc-update add vixie-cron default
@@ -452,7 +461,7 @@ emerge --sync
 
 #mcedit /etc/rc.conf
 grep -q autoinstall /proc/cmdline || mcedit /etc/conf.d/net
-rc-update add net.eth0 default
+rc-update add net.br0 default
 ip -6 a | grep -q " 200[1-2]:" || rc-update add net.6to4 default
 #sleep 5 || bash
 
