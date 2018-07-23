@@ -1,7 +1,22 @@
 netscript=
 netscript="-nic user,model=virtio"
 
-if [[ "$1" == "-netdev" ]]; then
+DISK=kvm_lxgentootest.qcow2
+disktype="
+-device ahci,id=ahci
+-device ide-drive,drive=d1,bus=ahci.0
+"
+graphics="-vnc 127.0.0.1:22 -k sv"
+#graphics="-nographic -device sga"
+#graphics="-nographic"
+#graphics="-curses"
+
+USEEFI=""
+VGA=""
+POSITIONAL=()
+while (($#)); do
+  case $1 in
+  -netdev)
 # use -netdev argument to create and add that as interface to existing br0 for example: -netdev tapKVMLx0
 shift
 netdev=$1
@@ -12,8 +27,24 @@ netscript="
 -net nic,macaddr=52:54:00:53:27:00,vlan=0,model=e1000
 -net tap,script=no,downscript=no,vlan=0,ifname=$netdev
 "
+  ;;
+  useefi)
+    USEEFI=YES
+    efibios="-bios usr/share/edk2.git/ovmf-x64/OVMF-pure-efi.fd"
+  ;;
+  usenvme)
+    disktype="-device nvme,drive=d1,id=nvme1,serial=nonoptionalsn001"
+  ;;
+  *)
+    POSITIONAL+=("$1") # save it in an array for later
+  ;;
+esac
 shift
-fi
+done
+set -- "${POSITIONAL[@]}" # restore positional parameters
+
+[[ "$USEEFI" != "YES" ]] && [[ "$VGA" == "" ]] && VGA="-vga vmware"
+
 # Create interface however you want to.
 # Recommendation to use a local proxy (ex squid) and transparent http redirection to save bandwidth
 # ex iptables transparent proxy:  iptables -t nat -A PREROUTING -i br0 -p tcp --dport 80 -j REDIRECT --to-port 3128
@@ -21,19 +52,10 @@ fi
 # start with -cdrom install-amd64-mod.iso to boot from livecd
 # TODO auto handle inc of mac netdev and vnc port
 
-DISK=kvm_lxgentootest.qcow2
 [ ! -f $DISK ] && qemu-img create -f qcow2 $DISK 20G
 
 (sleep 3; vncviewer :22) &
 
-disktype="
--device ahci,id=ahci
--device ide-drive,drive=d1,bus=ahci.0
-"
-#disktype="-device nvme,drive=d1,id=nvme1,serial=nonoptionalxz001"
-graphics="-vga vmware -vnc 127.0.0.1:22 -k sv"
-#graphics="-nographic -device sga"
-#efibios="-bios usr/share/edk2.git/ovmf-x64/OVMF-pure-efi.fd"
 
 set -x
 qemu-system-x86_64 -enable-kvm -M q35 -m 2048 -cpu host -smp 8,cores=8,sockets=1 -name lxgentootest \
@@ -41,7 +63,7 @@ qemu-system-x86_64 -enable-kvm -M q35 -m 2048 -cpu host -smp 8,cores=8,sockets=1
 ${disktype} \
 $netscript \
 -watchdog i6300esb -watchdog-action reset \
--boot menu=on -usb ${graphics} \
+-boot menu=on -usb ${VGA} ${graphics} \
 ${efibios} \
 $*
 

@@ -12,10 +12,36 @@ for f in $srciso; do
 done
 echo will be using $srciso as source
 
+ALLPOSITIONAL=()
+POSITIONAL=()
+KEYMAP=se
+while (($#)); do
+  ALLPOSITIONAL+=("$1") # save it in an array for later
+  case $1 in
+  auto)
+    AUTO=YES
+  ;;
+  --keymap)
+    KEYMAP=$2
+    shift
+  ;;
+  setupdonehalt)
+    SETUPDONEHALT=YES
+  ;;
+  *)
+    # unknown arguments are passed thru
+    POSITIONAL+=("$1") # save it in an array for later
+  ;;
+esac
+shift
+done
+set -- "${POSITIONAL[@]}" # restore positional parameters
+ALLPOSITIONAL=${ALLPOSITIONAL[@]}
+
 # check for root since we are using tmpfs and need root to not risk getting incorrect permissions on the new squashfs
 if [[ $EUID -ne 0 ]]; then
   echo "This script must be run as root, please provide password to su" 1>&2
-  su -c "sh $0 $*" && [ "$1" == "auto" ] && (rm kvm_lxgentootest.qcow2; sh test_w_qemu.sh -cdrom install-amd64-mod.iso $2)
+  su -c "sh $0 ${ALLPOSITIONAL}" && [ "$AUTO" == "YES" ] && (rm kvm_lxgentootest.qcow2; sh test_w_qemu.sh -cdrom install-amd64-mod.iso $*)
   exit
 fi
 # files that contains kernelcmdlines that should be patched
@@ -31,7 +57,7 @@ cd gentoo_boot_cd || exit 1
 # 7z x is broken in version 16.02, it does work with 9.20
 # use isoinfo extraction from cdrtools instead
 isoinfo -R -i ../$srciso -X || exit 1
-rm -rf "[BOOT]"
+[ -d "[BOOT]" ] && rm -rf "[BOOT]"
 
 unsquashfs image.squashfs || exit 1
 rm image.squashfs
@@ -57,11 +83,11 @@ sed -i 's/ontimeout localhost/ontimeout gentoo/' isolinux/isolinux.cfg
 # remove do keymap
 sed -i 's/ dokeymap / /' $bootmenufiles
 # default to swedish keyboard and add autoinstall TODO make it settable
-sed -i 's/vga=791$/vga=791 keymap=se autoinstall/' $bootmenufiles
+sed -i "s/vga=791\$/vga=791 keymap=${KEYMAP} autoinstall/" $bootmenufiles
 
-if [ "$1" == "auto" ]; then
+if [ "$AUTO" == "YES" ]; then
   echo running with auto - wont stop
-  sed -i 's/ autoinstall$/ autoinstall setupdonehalt/' $bootmenufiles
+  [[ "$SETUPDONEHALT" == "YES" ]] && sed -i 's/ autoinstall$/ autoinstall setupdonehalt/' $bootmenufiles
   cp ../install.sh g-install.sh
 else
   echo Giving user possibility to modify boot settings - if you dont want this add auto to the $0 commandline
