@@ -45,7 +45,7 @@ if [[ $EUID -ne 0 ]]; then
   exit
 fi
 # files that contains kernelcmdlines that should be patched
-bootmenufiles="isolinux/isolinux.cfg boot/grub/grub-512.cfg"
+bootmenufiles="isolinux/isolinux.cfg grub/grub.cfg"
 echo emerge -uv1 cdrtools squashfs-tools
 set -x
 # unmount in case we got something left over since before
@@ -63,14 +63,6 @@ unsquashfs image.squashfs || exit 1
 rm image.squashfs
 # mv squashfs-root ~/squashroot
 
-# we will rebuild the efimg
-rm gentoo.efimg
-mv gentoo.efimg.mountPoint boot
-rm boot/gentoo.igz boot/gentoo
-mkdir boot
-# copy files from our cd source
-cp -rv ../cdsource/* .
-
 echo make changes...
 # Try to get rid of the PredictableNetworkInterfaceNames unpredicatability With it we never know what the nics are called.
 mkdir -p squashfs-root/lib64/udev/rules.d
@@ -80,10 +72,9 @@ echo > squashfs-root/lib64/udev/rules.d/80-net-setup-link.rules
 cat ../gentoo_cd_bashrc_addon >> squashfs-root/root/.bashrc
 # Change the default of ISOLINUX config to gentoo cd instead of local boot
 sed -i 's/ontimeout localhost/ontimeout gentoo/' isolinux/isolinux.cfg
-# remove do keymap
-sed -i 's/ dokeymap / /' $bootmenufiles
+# remove do keymap and
 # default to swedish keyboard and add autoinstall TODO make it settable
-sed -i "s/vga=791\$/vga=791 keymap=${KEYMAP} autoinstall/" $bootmenufiles
+sed -i "s/ dokeymap/ keymap=${KEYMAP} autoinstall/" $bootmenufiles
 
 if [ "$AUTO" == "YES" ]; then
   echo running with auto - wont stop
@@ -102,22 +93,28 @@ rm -rf squashfs-root
 #/usr/sbin/mkfs.vfat -v -C install-amd64-mod.usb $(( ($(stat -c %s install-amd64-mod.iso) / 1024 + 511) / 32 * 32 ))
 # rebuild efimg https://gitweb.gentoo.org/proj/catalyst.git/tree/targets/support/create-iso.sh#n256
 clst_target_path=.
-	    if [ ! -e "${clst_target_path}/gentoo.efimg" ]
+	    if [ -e "${clst_target_path}/gentoo.efimg" ]
 	    then
-		iaSizeTemp=$(du -sk "${clst_target_path}/boot" 2>/dev/null)
+		echo "Found prepared EFI boot image at \
+		    ${clst_target_path}/gentoo.efimg"
+	    else
+		echo "Preparing EFI boot image"
+		iaSizeTemp=$(du --apparent-size -sk "${clst_target_path}/boot/EFI" 2>/dev/null)
 		iaSizeB=$(echo ${iaSizeTemp} | cut '-d ' -f1)
-		iaSize=$((${iaSizeB}+32+32)) # Add slack
-
+		iaSize=$((${iaSizeB}+64)) # add slack, tested near minimum for overhead
+		echo "Creating loopback file of size ${iaSize}kB"
 		dd if=/dev/zero of="${clst_target_path}/gentoo.efimg" bs=1k \
 		    count=${iaSize}
+		echo "Formatting loopback file with FAT16 FS"
 		mkfs.vfat -F 16 -n GENTOO "${clst_target_path}/gentoo.efimg"
 
 		mkdir "${clst_target_path}/gentoo.efimg.mountPoint"
+		echo "Mounting FAT16 loopback file"
 		mount -t vfat -o loop "${clst_target_path}/gentoo.efimg" \
 		    "${clst_target_path}/gentoo.efimg.mountPoint"
 
 		echo "Populating EFI image"
-		cp -rv "${clst_target_path}"/boot/* \
+		cp -rv "${clst_target_path}"/boot/EFI/ \
 		    "${clst_target_path}/gentoo.efimg.mountPoint"
 
 		umount "${clst_target_path}/gentoo.efimg.mountPoint"
@@ -127,16 +124,13 @@ clst_target_path=.
 		    echo "Removing /boot"
 		    rm -rf "${clst_target_path}/boot"
 		fi
-	    else
-		echo "Found populated EFI image at \
-		    ${clst_target_path}/gentoo.efimg"
 	    fi
 
 cd ..
 echo "Creating ISO using both ISOLINUX and EFI bootloader"
 mkisofs -J -R -l -V "Gentoo-HAI" -o install-amd64-mod.iso \
  -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table \
- -eltorito-alt-boot -b gentoo.efimg -c boot.cat -no-emul-boot -z gentoo_boot_cd/
+ -eltorito-alt-boot -eltorito-platform efi -b gentoo.efimg -no-emul-boot -z gentoo_boot_cd/
 
 umount gentoo_boot_cd
 rm -rf gentoo_boot_cd
