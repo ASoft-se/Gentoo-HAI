@@ -52,7 +52,7 @@ set -x
 [ -d gentoo_boot_cd ] && umount gentoo_boot_cd
 [ ! -d gentoo_boot_cd ] && (mkdir gentoo_boot_cd || exit 1)
 echo Make all changes in a tmpfs for performance, and saving on SSD writes.
-mount none -t tmpfs gentoo_boot_cd -o size=2G,nr_inodes=1048576
+mount none -t tmpfs gentoo_boot_cd -o size=3G,nr_inodes=1048576
 cd gentoo_boot_cd || exit 1
 # 7z x is broken in version 16.02, it does work with 9.20
 # use isoinfo extraction from cdrtools instead
