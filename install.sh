@@ -226,11 +226,11 @@ emerge-webrsync -v
 ln -snf /proc/self/mounts /etc/mtab
 
 [ -d /etc/portage/repos.conf ] || mkdir -p /etc/portage/repos.conf
-[ -d /etc/portage/package.keywords ] || mkdir -p /etc/portage/package.keywords
+[ -d /etc/portage/package.accept_keywords ] || mkdir -p /etc/portage/package.accept_keywords
 [ -d /etc/portage/package.use ] || mkdir -p /etc/portage/package.use
 [ -d /etc/portage/package.mask ] || mkdir -p /etc/portage/package.mask
 
-grep -q gentoo-sources /etc/portage/package.keywords/* || echo sys-kernel/gentoo-sources > /etc/portage/package.keywords/kernel &
+grep -q gentoo-sources /etc/portage/package.accept_keywords/* || echo sys-kernel/gentoo-sources > /etc/portage/package.accept_keywords/kernel &
 grep -q net-dns/bind /etc/portage/package.use/* || echo net-dns/bind dlz geoip idn caps threads >> /etc/portage/package.use/bind &
 # The old udev rules are removed and now replaced with the PredictableNetworkInterfaceNames madness instead, and no use flags any more.
 #   Will have to revert to the old way of removing the files on boot/shutdown, and just hope they don't change the naming.
@@ -247,7 +247,7 @@ emerge -C --quiet-unmerge-warn sys-fs/udev &
 time emerge -uvN1 -j8 --keep-going y sys-fs/eudev portage gentoolkit cpuid2cpuflags || shell
 #snmp support in current apcupsd is buggy
 grep -q sys-power/apcupsd /etc/portage/package.use/* || echo sys-power/apcupsd -snmp >> /etc/portage/package.use/apcupsd
-[[ ! -z "${NVMETOOLS}" ]] && (grep -q nvme /etc/portage/package.keywords/* || echo ${NVMETOOLS} > /etc/portage/package.keywords/nvme) &
+[[ ! -z "${NVMETOOLS}" ]] && (grep -q nvme /etc/portage/package.accept_keywords/* || echo ${NVMETOOLS} > /etc/portage/package.accept_keywords/nvme) &
 
 #add new CPU_FLAGS_X86
 echo "*/* \$(cpuid2cpuflags)" > /etc/portage/package.use/00cpuflags
