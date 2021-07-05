@@ -275,6 +275,7 @@ etc-update --automode -5
 time revdep-rebuild -vi -- -j4
 etc-update --automode -5
 
+eselect kernel set 1
 cd /usr/src/linux
 #getting a base kernel config
 wget https://raw.github.com/ASoft-se/Gentoo-HAI/master/krn330.conf -O .config
