@@ -251,8 +251,8 @@ time emerge -uvN1 -j8 --keep-going y sys-fs/eudev portage gentoolkit cpuid2cpufl
 grep -q sys-power/apcupsd /etc/portage/package.use/* || echo sys-power/apcupsd -snmp >> /etc/portage/package.use/apcupsd
 [[ ! -z "${NVMETOOLS}" ]] && (grep -q nvme /etc/portage/package.keywords/* || echo ${NVMETOOLS} > /etc/portage/package.keywords/nvme) &
 
-#add new CPU_FLAGS_X86 line into make.conf
-cpuinfo2cpuflags-x86 >> $MAKECONF
+#add new CPU_FLAGS_X86
+echo "*/* \$(cpuid2cpuflags)" > /etc/portage/package.use/00cpuflags
 
 #start out with being up2date
 #we expect that this can fail
