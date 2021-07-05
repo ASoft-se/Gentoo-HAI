@@ -120,13 +120,12 @@ wget http://distfiles.gentoo.org/releases/amd64/autobuilds/current-stage3-amd64/
 time tar xpf $FILE --xattrs-include='*.*' --numeric-owner &
 
 # grab .xz first if that is missing then grab .bz2 instead - just in case
-PORTAGE_FILE=$(wget -q http://distfiles.gentoo.org/releases/snapshots/current/ -O - | grep -o -E 'portage-latest\.tar\.xz' | uniq)
-[ -z "$PORTAGE_FILE" ] PORTAGE_FILE=$(wget -q http://distfiles.gentoo.org/releases/snapshots/current/ -O - | grep -o -E 'portage-latest\.tar\.bz2' | uniq)
+PORTAGE_FILE=$(wget -q http://distfiles.gentoo.org/snapshots/ -O - | grep -o -E 'portage-latest\.tar\.xz' | uniq)
 [ -z "$PORTAGE_FILE" ] && echo No portage tree found on distfiles && exit 1
-(wget http://distfiles.gentoo.org/releases/snapshots/current/$PORTAGE_FILE && \
-  mkdir -p usr && \
-  cd usr && \
-  time tar xpf ../$PORTAGE_FILE) || exit 1
+(wget http://distfiles.gentoo.org/snapshots/$PORTAGE_FILE && \
+  mkdir -p var/db/repos/gentoo && \
+  cd var/db/repos/gentoo && \
+  time tar xpf /mnt/gentoo/$PORTAGE_FILE --strip-components 1) || exit 1
 wait
 rm $FILE $PORTAGE_FILE
 cp /etc/resolv.conf etc
@@ -220,6 +219,8 @@ source /etc/profile
 echo -e "${SET_PASS}\n${SET_PASS}\n" | passwd
 set -x
 mount /var/tmp
+# ensure portage tree
+emerge-websync -v
 
 # fix for new mtab init
 ln -snf /proc/self/mounts /etc/mtab
@@ -446,11 +447,12 @@ emerge -uv -j8 net-snmp squid vsftpd dev-vcs/git subversion php openvpn apcupsd 
 # move to git based portage tree
 sed -i 's#sync-type = rsync#sync-type = git#' /etc/portage/repos.conf/gentoo.conf
 sed -i 's#sync-uri = rsync://rsync.gentoo.org/gentoo-portage#sync-uri = git://anongit.gentoo.org/repo/gentoo.git#' /etc/portage/repos.conf/gentoo.conf
-cd /usr/portage/
+cd /var/db/repos/gentoo/
 git clone --depth 1 git://anongit.gentoo.org/repo/gentoo.git -n && mv gentoo/.git .
 git checkout -f
 git clean -d -x -f -q
 chown -R portage:portage .
+#if some lingring unexpected files are left behind remove it
 rmdir gentoo
 emerge --sync
 
@@ -474,7 +476,7 @@ rm chrootstart.sh
 
 umount var/tmp
 rm -rf var/tmp/*
-rm -rf usr/portage/distfiles
+rm -rf var/cache/distfiles
 umount *
 cd /
 ## umount somehow fails recently, but can not find usage, lets go lazy
