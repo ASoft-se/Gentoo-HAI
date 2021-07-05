@@ -222,7 +222,7 @@ echo -e "${SET_PASS}\n${SET_PASS}\n" | passwd
 set -x
 mount /var/tmp
 # ensure portage tree
-emerge-websync -v
+emerge-webrsync -v
 
 # fix for new mtab init
 ln -snf /proc/self/mounts /etc/mtab
