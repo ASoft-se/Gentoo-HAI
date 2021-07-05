@@ -153,8 +153,6 @@ MAKECONF=etc/portage/make.conf
 [ ! -f $MAKECONF ] && [ -f etc/make.conf ] && MAKECONF=etc/make.conf
 echo $MAKECONF
 
-# remove bindist from USE in make.conf
-sed -i 's/bindist//' $MAKECONF
 # CPU_FLAGS_X86 should be handled but must be done inside chroot, see below
 
 #Updating Makefile
