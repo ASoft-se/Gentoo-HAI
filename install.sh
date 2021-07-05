@@ -159,7 +159,7 @@ echo $MAKECONF
 echo >> $MAKECONF
 echo "# add valid -march= to CFLAGS" >> $MAKECONF
 echo "MAKEOPTS=\"-j$(nproc)\"" >> $MAKECONF
-echo "FEATURES=\"parallel-fetch\"" >> $MAKECONF
+echo "FEATURES=\"parallel-fetch buildpkg\"" >> $MAKECONF
 # tty-helpers is needed py apcupsd
 echo "USE=\"\${USE} -X -bindist python qemu gnutls idn iproute2 logrotate snmp tty-helpers\"" >> $MAKECONF
 
