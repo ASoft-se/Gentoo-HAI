@@ -264,7 +264,7 @@ etc-update --automode -5
 
 [ -f /etc/portage/package.mask/gentoo.conf ] || cp /usr/share/portage/config/repos.conf /etc/portage/repos.conf/gentoo.conf
 
-time emerge -uv -j8 gentoo-sources mlocate postfix iproute2 bind bind-tools quagga dhcp atftp dhcpcd app-misc/mc pciutils usbutils smartmontools syslog-ng vixie-cron ntp lsof ${NVMETOOLS} || bash
+time emerge -uv -j8 gentoo-sources mlocate postfix iproute2 bind bind-tools quagga dhcp atftp dhcpcd app-misc/mc pciutils usbutils smartmontools syslog-ng virtual/cron ntp lsof ${NVMETOOLS} || bash
 mkdir /tftproot
 # reinstall eudev, TODO detect if we did switch above and only install if needed
 time emerge -uvN -j8 eudev
@@ -407,7 +407,7 @@ ln -s net.lo net.eth0
 ln -s net.lo net.br0
 ln -s net.lo net.6to4
 rc-update add syslog-ng default
-rc-update add vixie-cron default
+rc-update add *cron* default
 rc-update add atftp default
 sed -i 's/^#PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
 rc-update add sshd default
