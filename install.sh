@@ -84,6 +84,8 @@ p
 
 w
 " | fdisk ${IDEV} || exit 1
+# Wait a bit for the dust to settle on the new devices
+sleep 1
 
 #we should detect and use md if we multiple disks with same size...
 #sfdisk -d ${IDEV} | sfdisk --force /dev/sdb || exit 1
