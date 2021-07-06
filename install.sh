@@ -235,7 +235,7 @@ ln -snf /proc/self/mounts /etc/mtab
 [ -d /etc/portage/package.mask ] || mkdir -p /etc/portage/package.mask
 
 grep -q gentoo-sources /etc/portage/package.accept_keywords/* || echo sys-kernel/gentoo-sources > /etc/portage/package.accept_keywords/kernel &
-grep -q net-dns/bind /etc/portage/package.use/* || echo net-dns/bind dlz geoip idn caps threads >> /etc/portage/package.use/bind &
+grep -q net-dns/bind /etc/portage/package.use/* || echo net-dns/bind dlz idn caps threads >> /etc/portage/package.use/bind &
 # The old udev rules are removed and now replaced with the PredictableNetworkInterfaceNames madness instead, and no use flags any more.
 #   Will have to revert to the old way of removing the files on boot/shutdown, and just hope they don't change the naming.
 #   Looks like udev is just getting worse and worse, switching to eudev.
