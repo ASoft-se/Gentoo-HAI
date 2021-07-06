@@ -161,7 +161,7 @@ echo "# add valid -march= to CFLAGS" >> $MAKECONF
 echo "MAKEOPTS=\"-j$(nproc)\"" >> $MAKECONF
 echo "FEATURES=\"parallel-fetch buildpkg\"" >> $MAKECONF
 # tty-helpers is needed py apcupsd
-echo "USE=\"\${USE} -X bindist qemu gnutls idn iproute2 logrotate snmp tty-helpers\"" >> $MAKECONF
+echo "USE=\"\${USE} -X qemu gnutls idn iproute2 logrotate snmp tty-helpers\"" >> $MAKECONF
 
 grep -q autoinstall /proc/cmdline || nano $MAKECONF
 
