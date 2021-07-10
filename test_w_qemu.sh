@@ -1,4 +1,5 @@
-netscript=
+#!/bin/bash
+echo $0 Got arguments: $*
 netscript="-nic user,model=virtio"
 
 DISK=kvm_lxgentootest.qcow2
@@ -6,12 +7,9 @@ disktype="
 -device ahci,id=ahci
 -device ide-drive,drive=d1,bus=ahci.0
 "
-graphics="-vnc 127.0.0.1:22 -k sv"
-#graphics="-nographic -device sga"
-#graphics="-nographic"
-#graphics="-curses"
 
 USEEFI=""
+VNC="-vnc 127.0.0.1:22 -k sv"
 VGA=""
 POSITIONAL=()
 while (($#)); do
@@ -35,14 +33,22 @@ netscript="
   usenvme)
     disktype="-device nvme,drive=d1,id=nvme1,serial=nonoptionalsn001"
   ;;
+  auto)
+    echo "using -nographic, Ctrl+A, X exits"
+    VNC=""
+    VGA="-nographic"
+  ;;
   *)
     POSITIONAL+=("$1") # save it in an array for later
   ;;
-esac
-shift
+  esac
+  shift
 done
 set -- "${POSITIONAL[@]}" # restore positional parameters
 
+#VGA="-nographic -device sga"
+#VGA="-nographic"
+#VGA="-curses"
 [[ "$USEEFI" != "YES" ]] && [[ "$VGA" == "" ]] && VGA="-vga vmware"
 
 # Create interface however you want to.
@@ -54,8 +60,7 @@ set -- "${POSITIONAL[@]}" # restore positional parameters
 
 [ ! -f $DISK ] && qemu-img create -f qcow2 $DISK 20G
 
-(sleep 3; vncviewer :22) &
-
+[[ "$VNC" != "" ]] && (sleep 3; vncviewer :22) &
 
 set -x
 qemu-system-x86_64 -enable-kvm -M q35 -m 2048 -cpu host -smp 8,cores=8,sockets=1 -name lxgentootest \
@@ -63,7 +68,7 @@ qemu-system-x86_64 -enable-kvm -M q35 -m 2048 -cpu host -smp 8,cores=8,sockets=1
 ${disktype} \
 $netscript \
 -watchdog i6300esb -watchdog-action reset \
--boot menu=on -usb ${VGA} ${graphics} \
+-boot menu=on -usb ${VGA} ${VNC} \
 ${efibios} \
 $*
 

@@ -32,8 +32,8 @@ while (($#)); do
     # unknown arguments are passed thru
     POSITIONAL+=("$1") # save it in an array for later
   ;;
-esac
-shift
+  esac
+  shift
 done
 set -- "${POSITIONAL[@]}" # restore positional parameters
 ALLPOSITIONAL=${ALLPOSITIONAL[@]}
@@ -41,7 +41,7 @@ ALLPOSITIONAL=${ALLPOSITIONAL[@]}
 # check for root since we are using tmpfs and need root to not risk getting incorrect permissions on the new squashfs
 if [[ $EUID -ne 0 ]]; then
   echo "This script must be run as root, please provide password to su" 1>&2
-  su -c "sh $0 ${ALLPOSITIONAL}" && [ "$AUTO" == "YES" ] && (rm kvm_lxgentootest.qcow2; sh test_w_qemu.sh -cdrom install-amd64-mod.iso $*)
+  su -c "sh $0 ${ALLPOSITIONAL}" && [ "$AUTO" == "YES" ] && (rm kvm_lxgentootest.qcow2; sh test_w_qemu.sh -cdrom install-amd64-mod.iso ${ALLPOSITIONAL})
   exit
 fi
 # files that contains kernelcmdlines that should be patched
@@ -79,6 +79,10 @@ sed -i "s/ dokeymap/ keymap=${KEYMAP} autoinstall/" $bootmenufiles
 if [ "$AUTO" == "YES" ]; then
   echo running with auto - wont stop
   [[ "$SETUPDONEHALT" == "YES" ]] && sed -i 's/ autoinstall$/ autoinstall setupdonehalt/' $bootmenufiles
+# TODO have an option for if using qemu serial instead of vga
+  sed -i 's/ autoinstall/ autoinstall console=tty0 console=ttyS0,115200/' $bootmenufiles
+  # use console for -nographics, sga and curses
+  sed -i 's/vga=791//' $bootmenufiles
   cp ../install.sh g-install.sh
 else
   echo Giving user possibility to modify boot settings - if you dont want this add auto to the $0 commandline
