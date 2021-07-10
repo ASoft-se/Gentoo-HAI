@@ -116,22 +116,18 @@ mount ${IDEVP}1 /mnt/gentoo${bootmnt} || exit 1
 wait
 cd /mnt/gentoo || exit 1
 #cleanup in case of previous try...
-[ -f "*.tar.{bz2,xz}" ] && rm *.tar.{bz2,xz}
+[ -f "*.tar.{bz2,xz,sqfs}" ] && rm *.tar.{bz2,xz,sqfs}
+wget https://distfiles.gentoo.org/snapshots/squashfs/gentoo-current.xz.sqfs &
 FILE=$(wget -q http://distfiles.gentoo.org/releases/amd64/autobuilds/current-stage3-amd64/ -O - | grep -o -E 'stage3-amd64-20\w*\.tar\.(bz2|xz)' | uniq)
 [ -z "$FILE" ] && echo No stage3 found on distfiles && exit 1
 echo download latest stage file $FILE
 wget http://distfiles.gentoo.org/releases/amd64/autobuilds/current-stage3-amd64/$FILE || exit 1
-time tar xpf $FILE --xattrs-include='*.*' --numeric-owner &
+time tar xpf $FILE --xattrs-include='*.*' --numeric-owner
 
-# grab .xz first if that is missing then grab .bz2 instead - just in case
-PORTAGE_FILE=$(wget -q http://distfiles.gentoo.org/snapshots/ -O - | grep -o -E 'portage-latest\.tar\.xz' | uniq)
-[ -z "$PORTAGE_FILE" ] && echo No portage tree found on distfiles && exit 1
-(wget http://distfiles.gentoo.org/snapshots/$PORTAGE_FILE && \
-  mkdir -p var/db/repos/gentoo && \
-  cd var/db/repos/gentoo && \
-  time tar xpf /mnt/gentoo/$PORTAGE_FILE --strip-components 1) || exit 1
-wait
-rm $FILE $PORTAGE_FILE
+wait || exit 1
+mkdir -p var/db/repos/gentoo && \
+  mount -rt squashfs -o loop,nodev,noexec gentoo-current.xz.sqfs var/db/repos/gentoo || exit 1
+rm $FILE
 cp /etc/resolv.conf etc
 # make sure we are done with root unpack...
 
@@ -251,7 +247,7 @@ grep -q sys-fs/eudev /etc/portage/package.use/* || echo sys-fs/eudev hwdb gudev 
 echo sys-fs/udev >> /etc/portage/package.mask/udev &
 emerge -C --quiet-unmerge-warn sys-fs/udev &
 # will reinstall eudev further down after kernel sources, don't add this to world file
-time emerge -uvN1 -j8 --keep-going y sys-fs/eudev portage gentoolkit cpuid2cpuflags || shell
+time emerge -uvN1 -j8 --keep-going y sys-fs/eudev portage gentoolkit cpuid2cpuflags || bash
 #snmp support in current apcupsd is buggy
 grep -q sys-power/apcupsd /etc/portage/package.use/* || echo sys-power/apcupsd -snmp >> /etc/portage/package.use/apcupsd
 [[ ! -z "${NVMETOOLS}" ]] && (grep -q nvme /etc/portage/package.accept_keywords/* || echo ${NVMETOOLS} > /etc/portage/package.accept_keywords/nvme) &
@@ -455,6 +451,8 @@ sleep 5 || bash
 emerge -uv -j8 net-snmp vsftpd dev-vcs/git php openvpn apcupsd iotop iftop ddrescue tcpdump nmap netkit-telnetd dmidecode hdparm parted || bash
 
 # move to git based portage tree
+umount /var/db/repos/gentoo
+rm /gentoo-current.xz.sqfs
 sed -i 's#sync-type = rsync#sync-type = git#' /etc/portage/repos.conf/gentoo.conf
 sed -i 's#sync-uri = rsync://rsync.gentoo.org/gentoo-portage#sync-uri = git://anongit.gentoo.org/repo/gentoo.git#' /etc/portage/repos.conf/gentoo.conf
 cd /var/db/repos/gentoo/
