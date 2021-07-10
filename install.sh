@@ -112,6 +112,8 @@ mount ${IDEVP}3 /mnt/gentoo -o discard,noatime || exit 1
 mkdir -p /mnt/gentoo${bootmnt} || exit 1
 mount ${IDEVP}1 /mnt/gentoo${bootmnt} || exit 1
 
+# wait to make sure ntpdate is done
+wait
 cd /mnt/gentoo || exit 1
 #cleanup in case of previous try...
 [ -f "*.tar.{bz2,xz}" ] && rm *.tar.{bz2,xz}
