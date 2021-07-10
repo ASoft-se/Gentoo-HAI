@@ -424,7 +424,7 @@ echo rm -rf /lib/udev/rules.d/80-net-name-slot.rules >> /etc/local.d/remove.net.
 
 # Make it executable, and run also on shutdown
 chmod a+x /etc/local.d/remove.net.rules.start
-ln -fs /etc/local.d/remove.net.rules.start ln -fs /etc/local.d/remove.net.rules.stop
+ln -fs /etc/local.d/remove.net.rules.start /etc/local.d/remove.net.rules.stop
 rc-update add local default
 # run it now and add clean exit (rm will fail if there is no file so always exit with ok)
 sh /etc/local.d/remove.net.rules.start
@@ -440,8 +440,9 @@ rc-update add postfix default
 echo root:           root@asoft.se >> /etc/mail/aliases
 newaliases
 
-sed -i 's/\troot\t/\t/' /etc/crontab
-echo -e"*/30  *  * * *\tntpdate -s ntp.se" >> /etc/crontab
+# TODO detect if username should be included or not
+#sed -i 's/\troot\t/\t/' /etc/crontab
+echo -e "*/30  *  * * *\troot\tntpdate -s ntp.se" >> /etc/crontab
 crontab /etc/crontab
 
 rc-update add named default
