@@ -8,7 +8,8 @@ then
   SET_PASS=${SET_PASS:-password}
   # do some dance around to be able to set password
   sed -i 's/^password/#password/' /etc/pam.d/system-auth
-  echo -e "${SET_PASS}\n${SET_PASS}\n" | passwd
+  echo "password required pam_unix.so" >> /etc/pam.d/system-auth
+  echo "root:${SET_PASS}" | chpasswd
 
   ip link set eth0 up && sleep 2
   dhcpcd
