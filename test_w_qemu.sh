@@ -63,7 +63,8 @@ set -- "${POSITIONAL[@]}" # restore positional parameters
 [[ "$VNC" != "" ]] && (sleep 3; vncviewer :22) &
 
 set -x
-qemu-system-x86_64 -enable-kvm -M q35 -m 2048 -cpu host -smp 8,cores=8,sockets=1 -name lxgentootest \
+jn=$(nproc)
+qemu-system-x86_64 -enable-kvm -M q35 -m 2048 -cpu host -smp $jn,cores=$jn,sockets=1 -name lxgentootest \
 -drive id=d1,file=$DISK,format=qcow2,if=none,media=disk,index=1,cache=unsafe \
 ${disktype} \
 $netscript \
