@@ -1,5 +1,5 @@
 
-if [ "$(hostname)" == "livecd" ] && (tty | grep -q tty1\$)
+if [ "$(hostname)" == "livecd" ] && (tty | grep -q -e tty1\$ -e ttyS0\$)
 then
   [ -f /mnt/cdrom/g-install.sh ] && cp /mnt/cdrom/g-install.sh .
   setterm -blank 0

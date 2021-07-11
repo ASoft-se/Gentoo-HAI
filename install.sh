@@ -362,6 +362,11 @@ CONFIG_NFT_CHAIN_ROUTE_IPV6=m
 # if we have nvme hardware
 ${NVMEKERNEL}
 
+# Serial console
+CONFIG_SERIAL_8250=y
+CONFIG_SERIAL_8250_CONSOLE=y
+CONFIG_SERIAL_8250_DEPRECATED_OPTIONS=n
+
 " >> .config
 
 # v86d is dead so remove its initramfs
@@ -374,19 +379,18 @@ ls -lh /boot
 cd /boot
 ln -s vmlinuz-* vmlinuz && cd /usr/src/linux && make install
 ls -lh /boot
-echo "
-timeout 3
-title Gentoo
-root (hd0,0)
-# video=uvesafb:1024x768-32 is not stable on ex intel integrated gfx
-#kernel /vmlinuz root=${IDEVP}3 ro rootfstype=ext4 panic=30 vga=791" >> /boot/grub/grub.conf
 
-grub-install /dev/sda || grub2-install /dev/sda
+grub-install /dev/sda
 sed -i '/\^//' /etc/default/grub
 sed -i 's/^#GRUB_DISABLE_LINUX_UUID=[a-z]*/GRUB_DISABLE_LINUX_UUID=true/' /etc/default/grub
 sed -i 's/^#GRUB_CMDLINE_LINUX_DEFAULT=""/GRUB_CMDLINE_LINUX_DEFAULT="rootfstype=ext4 panic=30 vga=791"/' /etc/default/grub
-sed -i 's/^GRUB_TIMEOUT=10/GRUB_TIMEOUT=3/' /etc/default/grub
-grub-mkconfig -o /boot/grub/grub.cfg || grub2-mkconfig -o /boot/grub/grub.cfg
+sed -i 's/^#*GRUB_TIMEOUT=[0-9]+/GRUB_TIMEOUT=3/' /etc/default/grub
+grep -q console= /proc/cmdline && sed -i 's/ vga=791/ console=tty0 console=ttyS0,115200/' /etc/default/grub
+grep -q console= /proc/cmdline && sed -i 's/^#GRUB_TERMINAL=.*/GRUB_TERMINAL="console serial"/' /etc/default/grub
+grep -q console= /proc/cmdline && echo 'GRUB_SERIAL_COMMAND="serial --speed=115200 --unit=0"' >> /etc/default/grub
+# enable in inittab
+grep -q console= /proc/cmdline && sed -i 's/^#s0:/s0:/' /etc/inittab
+grub-mkconfig -o /boot/grub/grub.cfg
 
 cd /etc
 ln -fs /usr/share/zoneinfo/Europe/Stockholm localtime
