@@ -486,7 +486,7 @@ umount /var/tmp
 EOF
 chmod a+x chrootstart.sh
 
-chroot . ./chrootstart.sh
+time chroot . ./chrootstart.sh
 rm chrootstart.sh
 
 umount var/tmp
