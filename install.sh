@@ -398,6 +398,9 @@ touch /lib64/rc/init.d/softlevel
 #make sure everything is up2date
 sed -i 's/^#CHROOT=/CHROOT=/' /etc/conf.d/named
 emerge --config net-dns/bind
+# fix some missing files
+cp -a /dev/urandom /dev/urandom /chroot/dns/dev/
+find /chroot/dns
 #TODO sed fix syslog unix-stream("/chroot/dns/dev/log");
 sed -i 's/^# DHCPD_CHROOT=/DHCPD_CHROOT=/' /etc/conf.d/dhcpd
 #TODO syslog unix-stream("...dhcp");
