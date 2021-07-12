@@ -258,7 +258,7 @@ echo "*/* \$(cpuid2cpuflags)" > /etc/portage/package.use/00cpuflags
 #start out with being up2date
 #we expect that this can fail
 time emerge -uv1N -j2 openssl openssh
-time emerge -uvDN -j4 --keep-going y world
+time emerge -uvDN -j4 --keep-going y world --exclude gcc glibc
 etc-update --automode -5
 time revdep-rebuild -vi -- -j4
 etc-update --automode -5
