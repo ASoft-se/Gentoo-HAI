@@ -273,7 +273,7 @@ time emerge -uv -j8 iptables grub ebtables vconfig || bash
 lspci
 ntpdate ntp.se
 #rerun make sure up2date
-time emerge -uvDN -j4 world || bash
+time emerge -uvDN -j4 world --exclude gcc glibc || bash
 etc-update --automode -5
 time revdep-rebuild -vi -- -j4
 etc-update --automode -5
