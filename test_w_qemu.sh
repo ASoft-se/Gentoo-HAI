@@ -5,7 +5,7 @@ netscript="-nic user,model=virtio"
 DISK=kvm_lxgentootest.qcow2
 disktype="
 -device ahci,id=ahci
--device ide-drive,drive=d1,bus=ahci.0
+-device ide-hd,drive=d1,bus=ahci.0
 "
 
 USEEFI=""
