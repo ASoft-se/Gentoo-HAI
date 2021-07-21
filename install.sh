@@ -398,8 +398,9 @@ touch /lib64/rc/init.d/softlevel
 #make sure everything is up2date
 sed -i 's/^#CHROOT=/CHROOT=/' /etc/conf.d/named
 emerge --config net-dns/bind
-# fix some missing files
-cp -a /dev/urandom /dev/urandom /chroot/dns/dev/
+# fix some possibly missing files #51 just in case
+# should be fixed in https://bugs.gentoo.org/793860 by gentoo/gentoo@6e8faaad077caf9048e2c5a132ddade0b0b316aa
+[ -e /chroot/dns/dev/urandom ] || cp -a /dev/urandom /chroot/dns/dev/
 find /chroot/dns
 #TODO sed fix syslog unix-stream("/chroot/dns/dev/log");
 sed -i 's/^# DHCPD_CHROOT=/DHCPD_CHROOT=/' /etc/conf.d/dhcpd
