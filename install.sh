@@ -117,11 +117,13 @@ wait
 cd /mnt/gentoo || exit 1
 #cleanup in case of previous try...
 [ -f "*.tar.{bz2,xz,sqfs}" ] && rm *.tar.{bz2,xz,sqfs}
-wget https://distfiles.gentoo.org/snapshots/squashfs/gentoo-current.xz.sqfs &
-FILE=$(wget -q http://distfiles.gentoo.org/releases/amd64/autobuilds/current-stage3-amd64/ -O - | grep -o -E 'stage3-amd64-20\w*\.tar\.(bz2|xz)' | uniq)
-[ -z "$FILE" ] && echo No stage3 found on distfiles && exit 1
+DISTMIRROR=http://distfiles.gentoo.org
+wget ${DISTMIRROR}/snapshots/squashfs/gentoo-current.xz.sqfs &
+DISTBASE=${DISTMIRROR}/releases/amd64/autobuilds/current-install-amd64-minimal/
+FILE=$(wget -q $DISTBASE -O - | grep -o -E 'stage3-amd64-openrc-20\w*\.tar\.(bz2|xz)' | uniq)
+[ -z "$FILE" ] && echo No stage3 found on $DISTBASE && exit 1
 echo download latest stage file $FILE
-wget http://distfiles.gentoo.org/releases/amd64/autobuilds/current-stage3-amd64/$FILE || exit 1
+wget $DISTBASE$FILE || exit 1
 time tar xpf $FILE --xattrs-include='*.*' --numeric-owner
 
 wait || exit 1
