@@ -11,6 +11,7 @@ disktype="
 USEEFI=""
 VNC="-vnc 127.0.0.1:22 -k sv"
 VGA=""
+memorygb=2
 POSITIONAL=()
 while (($#)); do
   case $1 in
@@ -38,6 +39,11 @@ netscript="
     VNC=""
     VGA="-nographic"
   ;;
+  -m)
+    shift
+    echo "Set memory to $1 gb"
+    memorygb=$1
+  ;;
   *)
     POSITIONAL+=("$1") # save it in an array for later
   ;;
@@ -64,7 +70,7 @@ set -- "${POSITIONAL[@]}" # restore positional parameters
 
 set -x
 jn=$(nproc)
-qemu-system-x86_64 -enable-kvm -M q35 -m 2048 -cpu host -smp $jn,cores=$jn,sockets=1 -name lxgentootest \
+qemu-system-x86_64 -enable-kvm -M q35 -m $(($memorygb*1024)) -cpu host -smp $jn,cores=$jn,sockets=1 -name lxgentootest \
 -drive id=d1,file=$DISK,format=qcow2,if=none,media=disk,index=1,cache=unsafe \
 ${disktype} \
 $netscript \
