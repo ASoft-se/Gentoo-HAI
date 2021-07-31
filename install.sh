@@ -38,6 +38,10 @@ SET_PASS=${SET_PASS:-password}
 set -x
 # Try to update to a correct system time
 ntpdate ntp.se &
+pid_ntp=$!
+echo "trying to grab Gentoo releng & infrastructure gpg key in the background ..."
+(gpg --locate-key releng@gentoo.org; gpg --locate-key infrastructure@gentoo.org) &
+pid_gpg=$!
 
 PLATFORM=pcbios
 boottype=83
@@ -113,20 +117,35 @@ mkdir -p /mnt/gentoo${bootmnt} || exit 1
 mount ${IDEVP}1 /mnt/gentoo${bootmnt} || exit 1
 
 # wait to make sure ntpdate is done
-wait
+wait $pid_ntp
 cd /mnt/gentoo || exit 1
 #cleanup in case of previous try...
 [ -f "*.tar.{bz2,xz,sqfs}" ] && rm *.tar.{bz2,xz,sqfs}
 DISTMIRROR=http://distfiles.gentoo.org
 wget ${DISTMIRROR}/snapshots/squashfs/gentoo-current.xz.sqfs &
+wget ${DISTMIRROR}/snapshots/squashfs/sha512sum.txt
 DISTBASE=${DISTMIRROR}/releases/amd64/autobuilds/current-install-amd64-minimal/
 FILE=$(wget -q $DISTBASE -O - | grep -o -E 'stage3-amd64-openrc-20\w*\.tar\.(bz2|xz)' | uniq)
 [ -z "$FILE" ] && echo No stage3 found on $DISTBASE && exit 1
 echo download latest stage file $FILE
 wget $DISTBASE$FILE || exit 1
+wget $DISTBASE$FILE.DIGESTS.asc || exit 2
+wait $pid_gpg
+gpg --verify $FILE.DIGESTS.asc || exit 2
+echo "Verifying stage3 SHA512 ..."
+# grab SHA512 lines and line after, then filter out line that ends with iso
+echo "$(grep -A1 SHA512 $FILE.DIGESTS.asc | grep $FILE\$)" | sha512sum -c || exit 2
+echo " - Awesome! stage3 verification looks good."
+rm $FILE.DIGESTS.asc
 time tar xpf $FILE --xattrs-include='*.*' --numeric-owner
 
 wait || exit 1
+wait || exit 1
+gpg --verify sha512sum.txt || exit 2
+echo "Verifying snapshot SHA512 ..."
+echo "$(grep gentoo-current.xz.sqfs sha512sum.txt)" | sha512sum -c || exit 2
+echo " - Awesome! snapshot verification looks good."
+rm sha512sum.txt
 mkdir -p var/db/repos/gentoo && \
   mount -rt squashfs -o loop,nodev,noexec gentoo-current.xz.sqfs var/db/repos/gentoo || exit 1
 rm $FILE
