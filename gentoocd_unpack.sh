@@ -14,12 +14,16 @@ echo will be using $srciso as source
 
 ALLPOSITIONAL=()
 POSITIONAL=()
+DOSQUASH=0
 KEYMAP=se
 while (($#)); do
   ALLPOSITIONAL+=("$1") # save it in an array for later
   case $1 in
   auto)
     AUTO=YES
+  ;;
+  dosquash)
+    DOSQUASH=1
   ;;
   --keymap)
     KEYMAP=$2
@@ -59,27 +63,36 @@ pushd gentoo_boot_cd || exit 1
 isoinfo -R -i ../$srciso -X || exit 1
 [ -d "[BOOT]" ] && rm -rf "[BOOT]"
 
+if [ $DOSQUASH == 1 ]; then
 unsquashfs image.squashfs || exit 1
 rm image.squashfs
 # mv squashfs-root ~/squashroot
 
 echo make changes...
+# use net.ifnames=0 instead
 # Try to get rid of the PredictableNetworkInterfaceNames unpredicatability With it we never know what the nics are called.
-mkdir -p squashfs-root/lib64/udev/rules.d
-echo > squashfs-root/lib64/udev/rules.d/80-net-name-slot.rules
-echo > squashfs-root/lib64/udev/rules.d/80-net-setup-link.rules
+mkdir -p squashfs-root/lib/udev/rules.d
+echo > squashfs-root/lib/udev/rules.d/80-net-name-slot.rules
+echo > squashfs-root/lib/udev/rules.d/80-net-setup-link.rules
 
-cat ../gentoo_cd_bashrc_addon >> squashfs-root/root/.bashrc
+cat ../cdhelpers/gentoo_cd_bashrc_addon >> squashfs-root/root/.bashrc
 mksquashfs squashfs-root image.squashfs || exit 1
 rm -rf squashfs-root
+else
+  echo Update cdroot from cdhelpers
+  cp -rav ../cdhelpers/* .
+  [ -f cdupdate.sh ] && chmod a+x cdupdate.sh
+fi
 
-# cdupdate.sh script fixer hack #8
+if [ -d ../cpiofiles ]; then
 pushd ../cpiofiles
+  echo Updating cpio initrd from cpiofiles
   find .
   ls -lh ../gentoo_boot_cd/boot/gentoo.igz
   find . -print | cpio -H newc -o | xz --check=crc32 -vT0 >> ../gentoo_boot_cd/boot/gentoo.igz
   ls -lh ../gentoo_boot_cd/boot/gentoo.igz
 popd
+fi
 
 # Change the default of ISOLINUX config to gentoo cd instead of local boot
 sed -i 's/ontimeout localhost/ontimeout gentoo/' isolinux/isolinux.cfg
