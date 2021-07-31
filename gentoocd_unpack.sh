@@ -133,11 +133,11 @@ clst_target_path=.
 		echo "Creating loopback file of size ${iaSize}kB"
 		dd if=/dev/zero of="${clst_target_path}/gentoo.efimg" bs=1k \
 		    count=${iaSize}
-		echo "Formatting loopback file with FAT16 FS"
-		mkfs.vfat -F 16 -n GENTOO "${clst_target_path}/gentoo.efimg"
+		echo "Formatting loopback file with FAT FS"
+		mkfs.vfat -n GENTOO "${clst_target_path}/gentoo.efimg"
 
 		mkdir "${clst_target_path}/gentoo.efimg.mountPoint"
-		echo "Mounting FAT16 loopback file"
+		echo "Mounting FAT loopback file"
 		mount -t vfat -o loop "${clst_target_path}/gentoo.efimg" \
 		    "${clst_target_path}/gentoo.efimg.mountPoint"
 
@@ -147,11 +147,6 @@ clst_target_path=.
 
 		umount "${clst_target_path}/gentoo.efimg.mountPoint"
 		rmdir "${clst_target_path}/gentoo.efimg.mountPoint"
-		if [ ! -e "${clst_target_path}/boot/grub/stage2_eltorito" ]
-		then
-		    echo "Removing /boot"
-		    rm -rf "${clst_target_path}/boot"
-		fi
 	    fi
 
 popd
@@ -159,6 +154,7 @@ echo "Creating ISO using both ISOLINUX and EFI bootloader"
 mkisofs -J -R -l -V "Gentoo-HAI" -o install-amd64-mod.iso \
  -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table \
  -eltorito-alt-boot -eltorito-platform efi -b gentoo.efimg -no-emul-boot -z gentoo_boot_cd/
+isohybrid --uefi install-amd64-mod.iso
 
 umount gentoo_boot_cd
 rm -rf gentoo_boot_cd
