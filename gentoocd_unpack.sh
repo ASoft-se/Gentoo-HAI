@@ -53,7 +53,7 @@ set -x
 [ ! -d gentoo_boot_cd ] && (mkdir gentoo_boot_cd || exit 1)
 echo Make all changes in a tmpfs for performance, and saving on SSD writes.
 mount none -t tmpfs gentoo_boot_cd -o size=3G,nr_inodes=1048576
-cd gentoo_boot_cd || exit 1
+pushd gentoo_boot_cd || exit 1
 # 7z x is broken in version 16.02, it does work with 9.20
 # use isoinfo extraction from cdrtools instead
 isoinfo -R -i ../$srciso -X || exit 1
@@ -70,6 +70,17 @@ echo > squashfs-root/lib64/udev/rules.d/80-net-name-slot.rules
 echo > squashfs-root/lib64/udev/rules.d/80-net-setup-link.rules
 
 cat ../gentoo_cd_bashrc_addon >> squashfs-root/root/.bashrc
+mksquashfs squashfs-root image.squashfs || exit 1
+rm -rf squashfs-root
+
+# cdupdate.sh script fixer hack #8
+pushd ../cpiofiles
+  find .
+  ls -lh ../gentoo_boot_cd/boot/gentoo.igz
+  find . -print | cpio -H newc -o | xz --check=crc32 -vT0 >> ../gentoo_boot_cd/boot/gentoo.igz
+  ls -lh ../gentoo_boot_cd/boot/gentoo.igz
+popd
+
 # Change the default of ISOLINUX config to gentoo cd instead of local boot
 sed -i 's/ontimeout localhost/ontimeout gentoo/' isolinux/isolinux.cfg
 # remove do keymap and
@@ -92,8 +103,6 @@ echo -e "\n\tStarting separate shell, just exit if no changes should be done.\n\
 bash
 fi
 
-mksquashfs squashfs-root image.squashfs || exit 1
-rm -rf squashfs-root
 #/usr/sbin/mkfs.vfat -v -C install-amd64-mod.usb $(( ($(stat -c %s install-amd64-mod.iso) / 1024 + 511) / 32 * 32 ))
 # rebuild efimg https://gitweb.gentoo.org/proj/catalyst.git/tree/targets/support/create-iso.sh#n256
 clst_target_path=.
@@ -130,7 +139,7 @@ clst_target_path=.
 		fi
 	    fi
 
-cd ..
+popd
 echo "Creating ISO using both ISOLINUX and EFI bootloader"
 mkisofs -J -R -l -V "Gentoo-HAI" -o install-amd64-mod.iso \
  -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table \
