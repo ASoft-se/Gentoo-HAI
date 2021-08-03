@@ -15,7 +15,7 @@ echo will be using $srciso as source
 ALLPOSITIONAL=()
 POSITIONAL=()
 DOSQUASH=0
-KEYMAP=se
+KEYMAP=us
 while (($#)); do
   ALLPOSITIONAL+=("$1") # save it in an array for later
   case $1 in
@@ -27,6 +27,7 @@ while (($#)); do
     DOSQUASH=1
   ;;
   --keymap)
+    # value for livecd env from https://github.com/gentoo/genkernel/blob/master/defaults/keymaps/keymapList
     KEYMAP=$2
     shift
   ;;
