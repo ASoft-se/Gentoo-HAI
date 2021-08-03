@@ -128,26 +128,25 @@ DISTBASE=${DISTMIRROR}/releases/amd64/autobuilds/current-install-amd64-minimal/
 FILE=$(wget -q $DISTBASE -O - | grep -o -E 'stage3-amd64-openrc-20\w*\.tar\.(bz2|xz)' | uniq)
 [ -z "$FILE" ] && echo No stage3 found on $DISTBASE && exit 1
 echo download latest stage file $FILE
-wget $DISTBASE$FILE || exit 1
-wget $DISTBASE$FILE.DIGESTS.asc || exit 2
+wget $DISTBASE$FILE || bash
+wget $DISTBASE$FILE.DIGESTS.asc || bash
 wait $pid_gpg
-gpg --verify $FILE.DIGESTS.asc || exit 2
+gpg --verify $FILE.DIGESTS.asc || bash
 echo "Verifying stage3 SHA512 ..."
 # grab SHA512 lines and line after, then filter out line that ends with iso
-echo "$(grep -A1 SHA512 $FILE.DIGESTS.asc | grep $FILE\$)" | sha512sum -c || exit 2
+echo "$(grep -A1 SHA512 $FILE.DIGESTS.asc | grep $FILE\$)" | sha512sum -c || bash
 echo " - Awesome! stage3 verification looks good."
 rm $FILE.DIGESTS.asc
 time tar xpf $FILE --xattrs-include='*.*' --numeric-owner
 
 wait || exit 1
-wait || exit 1
-gpg --verify sha512sum.txt || exit 2
+gpg --verify sha512sum.txt || bash
 echo "Verifying snapshot SHA512 ..."
-echo "$(grep gentoo-current.xz.sqfs sha512sum.txt)" | sha512sum -c || exit 2
+echo "$(grep gentoo-current.xz.sqfs sha512sum.txt)" | sha512sum -c || bash
 echo " - Awesome! snapshot verification looks good."
 rm sha512sum.txt
 mkdir -p var/db/repos/gentoo && \
-  mount -rt squashfs -o loop,nodev,noexec gentoo-current.xz.sqfs var/db/repos/gentoo || exit 1
+  mount -rt squashfs -o loop,nodev,noexec gentoo-current.xz.sqfs var/db/repos/gentoo || bash
 rm $FILE
 cp /etc/resolv.conf etc
 # make sure we are done with root unpack...
