@@ -23,8 +23,8 @@ echo If you havent already, you should run the below as root
 echo   ip tuntap add dev $netdev mode tap user $USER
 echo   ip link set dev $netdev up master br0
 netscript="
--net nic,macaddr=52:54:00:53:27:00,vlan=0,model=e1000
--net tap,script=no,downscript=no,vlan=0,ifname=$netdev
+-net nic,macaddr=52:54:00:53:27:00,model=e1000
+-net tap,script=no,downscript=no,ifname=$netdev
 "
   ;;
   useefi)
