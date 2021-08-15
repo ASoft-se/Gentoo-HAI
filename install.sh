@@ -285,7 +285,7 @@ etc-update --automode -5
 
 [ -f /etc/portage/package.mask/gentoo.conf ] || cp /usr/share/portage/config/repos.conf /etc/portage/repos.conf/gentoo.conf
 
-time emerge -uv -j8 gentoo-sources mlocate postfix iproute2 bind bind-tools quagga dhcp atftp dhcpcd app-misc/mc pciutils usbutils smartmontools syslog-ng virtual/cron ntp lsof ${NVMETOOLS} || bash
+time emerge -uv -j8 gentoo-sources mlocate postfix iproute2 bind bind-tools dhcp atftp dhcpcd app-misc/mc pciutils usbutils smartmontools syslog-ng virtual/cron ntp lsof ${NVMETOOLS} || bash
 mkdir /tftproot
 # reinstall eudev, TODO detect if we did switch above and only install if needed
 time emerge -uvN -j8 eudev
@@ -455,11 +455,6 @@ rc-update add local default
 # run it now and add clean exit (rm will fail if there is no file so always exit with ok)
 sh /etc/local.d/remove.net.rules.start
 echo exit 0 >> /etc/local.d/remove.net.rules.start
-
-touch /etc/quagga/zebra.conf
-touch /etc/quagga/ospfd.conf
-echo EXTRA_OPTS=\"-A 127.0.0.1 -P 0\" >> /etc/conf.d/zebra
-echo EXTRA_OPTS=\"-A 127.0.0.1 -P 0\" >> /etc/conf.d/ospfd
 
 sed -i 's/^smtp.*inet/#&/' /etc/postfix/master.cf
 rc-update add postfix default
