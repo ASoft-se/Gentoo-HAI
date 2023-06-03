@@ -257,13 +257,14 @@ grep -q net-dns/bind /etc/portage/package.use/* || echo net-dns/bind dlz idn cap
 touch /etc/udev/rules.d/80-net-name-slot.rules &
 # they made it unpredictable and changed the name, so lets be future prof
 touch /etc/udev/rules.d/80-net-setup-link.rules &
+grep -q sys-apps/systemd-utils /etc/portage/package.use/* || echo sys-apps/systemd-utils -udev >> /etc/portage/package.use/eudev
 grep -q sys-fs/eudev /etc/portage/package.use/* || echo sys-fs/eudev hwdb gudev keymap -rule-generator >> /etc/portage/package.use/eudev
 # mask old udev so it is not pulled in.
 echo sys-fs/udev >> /etc/portage/package.mask/udev &
 emerge -C --quiet-unmerge-warn sys-fs/udev &
 # will reinstall eudev further down after kernel sources, don't add this to world file
 time emerge -uvN1 -j8 --keep-going y portage gentoolkit cpuid2cpuflags || bash
-time emerge -uvN1 sys-fs/eudev || bash
+time emerge -uvN1 -j2 sys-apps/systemd-utils sys-fs/eudev || bash
 #snmp support in current apcupsd is buggy
 grep -q sys-power/apcupsd /etc/portage/package.use/* || echo sys-power/apcupsd -snmp >> /etc/portage/package.use/apcupsd
 [[ ! -z "${NVMETOOLS}" ]] && (grep -q nvme /etc/portage/package.accept_keywords/* || echo ${NVMETOOLS} > /etc/portage/package.accept_keywords/nvme) &
