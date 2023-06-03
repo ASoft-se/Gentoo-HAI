@@ -129,14 +129,14 @@ FILE=$(wget -q $DISTBASE -O - | grep -o -E 'stage3-amd64-openrc-20\w*\.tar\.(bz2
 [ -z "$FILE" ] && echo No stage3 found on $DISTBASE && exit 1
 echo download latest stage file $FILE
 wget $DISTBASE$FILE || bash
-wget $DISTBASE$FILE.DIGESTS.asc || bash
+wget $DISTBASE$FILE.DIGESTS || bash
 wait $pid_gpg
-gpg --verify $FILE.DIGESTS.asc || bash
+gpg --verify $FILE.DIGESTS || bash
 echo "Verifying stage3 SHA512 ..."
 # grab SHA512 lines and line after, then filter out line that ends with iso
-echo "$(grep -A1 SHA512 $FILE.DIGESTS.asc | grep $FILE\$)" | sha512sum -c || bash
+echo "$(grep -A1 SHA512 $FILE.DIGESTS | grep $FILE\$)" | sha512sum -c || bash
 echo " - Awesome! stage3 verification looks good."
-rm $FILE.DIGESTS.asc
+rm $FILE.DIGESTS
 time tar xpf $FILE --xattrs-include='*.*' --numeric-owner
 
 wait || exit 1
