@@ -1,4 +1,5 @@
 #!/bin/bash
+# Needed packages for grub-mkrescue emerge -uv1 sys-fs/mtools dev-libs/libisoburn app-cdr/cdrtools
 # check for iso before asking for root
 srciso=install-amd64-minimal-*.iso
 for f in $srciso; do
@@ -47,12 +48,12 @@ POSITIONAL=${POSITIONAL[@]}
 
 # check for root since we are using tmpfs and need root to not risk getting incorrect permissions on the new squashfs
 if [[ $EUID -ne 0 ]]; then
-  echo "This script must be run as root, please provide password to su" 1>&2
+  echo "This script must be run as root (to mount tmpfs), please provide password to su" 1>&2
   su -c "sh $0 ${ALLPOSITIONAL}" && [ "$AUTO" == "YES" ] && (rm kvm_lxgentootest.qcow2; sh test_w_qemu.sh -cdrom install-amd64-mod.iso ${POSITIONAL})
   exit
 fi
 # files that contains kernelcmdlines that should be patched
-bootmenufiles="isolinux/isolinux.cfg grub/grub.cfg"
+bootmenufiles="boot/grub/grub.cfg"
 echo emerge -uv1 cdrtools squashfs-tools
 set -x
 # unmount in case we got something left over since before
@@ -64,7 +65,6 @@ pushd gentoo_boot_cd || exit 1
 # 7z x is broken in version 16.02, it does work with 9.20
 # use isoinfo extraction from cdrtools instead
 isoinfo -R -i ../$srciso -X || exit 1
-[ -d "[BOOT]" ] && rm -rf "[BOOT]"
 
 if [ $DOSQUASH == 1 ]; then
 unsquashfs image.squashfs || exit 1
@@ -97,8 +97,6 @@ pushd ../cpiofiles
 popd
 fi
 
-# Change the default of ISOLINUX config to gentoo cd instead of local boot
-sed -i 's/ontimeout localhost/ontimeout gentoo/' isolinux/isolinux.cfg
 # remove do keymap and
 # default to swedish keyboard and add autoinstall TODO make it settable
 sed -i "s/ dokeymap/ keymap=${KEYMAP} autoinstall/" $bootmenufiles
@@ -112,50 +110,17 @@ if [ "$AUTO" == "YES" ]; then
   sed -i 's/vga=791//' $bootmenufiles
   cp ../install.sh g-install.sh
 else
-  echo Giving user possibility to modify boot settings - if you dont want this add auto to the $0 commandline
-  nano isolinux/isolinux.cfg
 # TODO color ths to make it readable
 echo -e "\n\tStarting separate shell, just exit if no changes should be done.\n\n\tWhen exit, the iso will be rebuilt."
 bash
 fi
 
-#/usr/sbin/mkfs.vfat -v -C install-amd64-mod.usb $(( ($(stat -c %s install-amd64-mod.iso) / 1024 + 511) / 32 * 32 ))
 # rebuild efimg https://gitweb.gentoo.org/proj/catalyst.git/tree/targets/support/create-iso.sh#n256
 clst_target_path=.
-	    if [ -e "${clst_target_path}/gentoo.efimg" ]
-	    then
-		echo "Found prepared EFI boot image at \
-		    ${clst_target_path}/gentoo.efimg"
-	    else
-		echo "Preparing EFI boot image"
-		iaSizeTemp=$(du --apparent-size -sk "${clst_target_path}/boot/EFI" 2>/dev/null)
-		iaSizeB=$(echo ${iaSizeTemp} | cut '-d ' -f1)
-		iaSize=$((${iaSizeB}+64)) # add slack, tested near minimum for overhead
-		echo "Creating loopback file of size ${iaSize}kB"
-		dd if=/dev/zero of="${clst_target_path}/gentoo.efimg" bs=1k \
-		    count=${iaSize}
-		echo "Formatting loopback file with FAT FS"
-		mkfs.vfat -n GENTOO "${clst_target_path}/gentoo.efimg"
-
-		mkdir "${clst_target_path}/gentoo.efimg.mountPoint"
-		echo "Mounting FAT loopback file"
-		mount -t vfat -o loop "${clst_target_path}/gentoo.efimg" \
-		    "${clst_target_path}/gentoo.efimg.mountPoint"
-
-		echo "Populating EFI image"
-		cp -rv "${clst_target_path}"/boot/EFI/ \
-		    "${clst_target_path}/gentoo.efimg.mountPoint"
-
-		umount "${clst_target_path}/gentoo.efimg.mountPoint"
-		rmdir "${clst_target_path}/gentoo.efimg.mountPoint"
-	    fi
 
 popd
-echo "Creating ISO using both ISOLINUX and EFI bootloader"
-mkisofs -J -R -l -V "Gentoo-HAI" -o install-amd64-mod.iso \
- -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table \
- -eltorito-alt-boot -eltorito-platform efi -b gentoo.efimg -no-emul-boot -z gentoo_boot_cd/
-isohybrid --uefi install-amd64-mod.iso
+echo "Creating ISO ..."
+grub-mkrescue -joliet -iso-level 3 -o install-amd64-mod.iso gentoo_boot_cd/
 
 umount gentoo_boot_cd
 rm -rf gentoo_boot_cd

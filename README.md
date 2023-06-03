@@ -24,11 +24,7 @@ Run `sh get_minimal_cd.sh` to download latest `install-amd64-minimal-*.iso`.
 Run `sh gentoocd_unpack.sh` (unfortunatly requests root) to unpack iso and create `install-amd64-mod.iso`
 It adds script to cd start that runs the install automatically.
 
-Also give `sh gentoo_cdupdate.sh auto` a try if you want to test things out in a vm.
-
 ### To make testing simple
-  modify and use `test_w_qemu.sh` to start qemu, Disk image is auto created if it does not already exist.
-```bash
-sh test_w_qemu.sh -cdrom install-amd64-mod.iso
-```
+Give `sh gentoo_cdupdate.sh auto` a try if you want to test things out in a vm.
+It will use `test_w_qemu.sh` to start qemu, Disk image is auto created if it does not already exist.
 When testing disk images will be recrated, so copy them to a safe place if you want to keep them.
