@@ -202,11 +202,6 @@ dhcp_br0=\"nodns nontp nonis nosendhost\"
 config_eth0="null"
 rc_net_br0_need="net.eth0"
 
-link_6to4=\"br0\"
-config_6to4=\"ip6to4\"
-rc_net_6to4_need=\"net.br0\"
-rc_net_6to4_provide=\"!net\"
-
 config_eth1=\"null\"
 bridge_br1=\"eth1\"
 
@@ -435,7 +430,6 @@ sed -i 's/^c1:12345:respawn:\/sbin\/agetty .* tty1 linux\$/& --noclear/' /etc/in
 cd /etc/init.d
 ln -s net.lo net.eth0
 ln -s net.lo net.br0
-ln -s net.lo net.6to4
 rc-update add syslog-ng default
 rc-update add *cron* default
 rc-update add atftp default
@@ -495,7 +489,6 @@ emerge --sync
 #mcedit /etc/rc.conf
 grep -q autoinstall /proc/cmdline || mcedit /etc/conf.d/net
 rc-update add net.br0 default
-ip -6 a | grep -q " 200[1-2]:" || rc-update add net.6to4 default
 #sleep 5 || bash
 
 umount /var/tmp
