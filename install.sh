@@ -124,8 +124,8 @@ cd /mnt/gentoo || exit 1
 DISTMIRROR=http://distfiles.gentoo.org
 wget ${DISTMIRROR}/snapshots/squashfs/gentoo-current.xz.sqfs &
 wget ${DISTMIRROR}/snapshots/squashfs/sha512sum.txt
-DISTBASE=${DISTMIRROR}/releases/amd64/autobuilds/current-install-amd64-minimal/
-FILE=$(wget -q $DISTBASE -O - | grep -o -E 'stage3-amd64-openrc-20\w*\.tar\.(bz2|xz)' | uniq)
+DISTBASE=${DISTMIRROR}/releases/amd64/autobuilds/current-stage3-amd64-openrc/
+FILE=$(wget -q $DISTBASE -O - | grep -o -E 'stage3-amd64-openrc-\w*\.tar\.xz' | sort -r | head -1)
 [ -z "$FILE" ] && echo No stage3 found on $DISTBASE && exit 1
 echo download latest stage file $FILE
 wget $DISTBASE$FILE || bash

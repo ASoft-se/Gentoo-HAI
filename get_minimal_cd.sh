@@ -1,7 +1,7 @@
 #!/bin/bash
 DISTMIRROR=http://distfiles.gentoo.org
 DISTBASE=${DISTMIRROR}/releases/amd64/autobuilds/current-install-amd64-minimal/
-FILE=$(wget -q $DISTBASE -O - | grep -o -e "install-amd64-minimal-\w*.iso" | uniq)
+FILE=$(wget -q $DISTBASE -O - | grep -o -e "install-amd64-minimal-\w*.iso" | sort -r | head -1)
 
 wget -c $DISTBASE$FILE || exit 1
 wget -c $DISTBASE$FILE.DIGESTS || exit 2
