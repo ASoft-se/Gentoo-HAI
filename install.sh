@@ -239,6 +239,9 @@ set -x
 mount /var/tmp
 # ensure portage tree
 emerge-webrsync -v
+getuto
+export FEATURES="getbinpkg"
+export EMERGE_DEFAULT_OPTS="--binpkg-respect-use=y"
 
 # fix for new mtab init
 ln -snf /proc/self/mounts /etc/mtab
