@@ -263,6 +263,7 @@ touch /etc/udev/rules.d/80-net-setup-link.rules &
 time emerge -uvN1 -j8 --keep-going y portage gentoolkit cpuid2cpuflags || bash
 #snmp support in current apcupsd is buggy
 grep -q sys-power/apcupsd /etc/portage/package.use/* || echo sys-power/apcupsd -snmp >> /etc/portage/package.use/apcupsd
+grep -q net-firewall/nftables /etc/portage/package.use/* || echo net-firewall/nftables xtables >> /etc/portage/package.use/nftables
 [[ ! -z "${NVMETOOLS}" ]] && (grep -q nvme /etc/portage/package.accept_keywords/* || echo ${NVMETOOLS} > /etc/portage/package.accept_keywords/nvme) &
 
 #add new CPU_FLAGS_X86
@@ -280,7 +281,7 @@ etc-update --automode -5
 
 time emerge -uv -j8 installkernel gentoo-sources mlocate postfix iproute2 bind bind-tools dhcp atftp dhcpcd app-misc/mc pciutils usbutils smartmontools syslog-ng virtual/cron ntp lsof ${NVMETOOLS} || bash
 mkdir /tftproot
-time emerge -uv -j8 iptables grub ebtables vconfig || bash
+time emerge -uv -j8 iptables nftables grub || bash
 lspci
 ntpdate ntp.se
 #rerun make sure up2date
