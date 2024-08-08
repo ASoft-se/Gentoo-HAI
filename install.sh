@@ -275,7 +275,7 @@ etc-update --automode -5
 
 [ -f /etc/portage/package.mask/gentoo.conf ] || cp /usr/share/portage/config/repos.conf /etc/portage/repos.conf/gentoo.conf
 
-time emerge -uv -j8 gentoo-sources mlocate postfix iproute2 bind bind-tools dhcp atftp dhcpcd app-misc/mc pciutils usbutils smartmontools syslog-ng virtual/cron ntp lsof ${NVMETOOLS} || bash
+time emerge -uv -j8 installkernel gentoo-sources mlocate postfix iproute2 bind bind-tools dhcp atftp dhcpcd app-misc/mc pciutils usbutils smartmontools syslog-ng virtual/cron ntp lsof ${NVMETOOLS} || bash
 mkdir /tftproot
 time emerge -uv -j8 iptables grub ebtables vconfig || bash
 lspci
