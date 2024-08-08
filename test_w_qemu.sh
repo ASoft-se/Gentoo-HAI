@@ -74,7 +74,7 @@ qemu-system-x86_64 -enable-kvm -M q35 -m $(($memorygb*1024)) -cpu host -smp $jn,
 -drive id=d1,file=$DISK,format=qcow2,if=none,media=disk,index=1,cache=unsafe \
 ${disktype} \
 $netscript \
--watchdog i6300esb -watchdog-action reset \
+-device i6300esb -action watchdog=reset \
 -boot menu=on -usb ${VGA} ${VNC} \
 ${efibios} \
 $*
