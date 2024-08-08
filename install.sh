@@ -461,7 +461,7 @@ sleep 5 || bash
 
 # fix problem with apcupsd...
 [ -d /run/lock ] || mkdir /run/lock
-emerge -uv -j8 net-snmp vsftpd dev-vcs/git php openvpn apcupsd iotop iftop ddrescue tcpdump nmap netkit-telnetd dmidecode hdparm parted || bash
+emerge -uv -j8 net-snmp dev-vcs/git php openvpn apcupsd iotop iftop ddrescue tcpdump nmap netkit-telnetd dmidecode hdparm || bash
 
 # move to git based portage tree
 umount /var/db/repos/gentoo
