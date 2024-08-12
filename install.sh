@@ -166,8 +166,10 @@ echo -e "\e[93mSnapshot  SHA512 $snapshot512 ...\e[0m"
 echo -e "\e[93mExpecting SHA512 $(grep gentoo-current.xz.sqfs sha512sum.txt)\e[0m"
 grep $snapshot512 sha512sum.txt && echo -e " \e[92m - OK\e[0m" || (echo " \e[91mnot found in sha512sum.txt\e[0m"; bash)
 rm sha512sum.txt
+mkdir -p var/db/snapshots
+mv gentoo-current.xz.sqfs var/db/snapshots
 mkdir -p var/db/repos/gentoo && \
-  mount -rt squashfs -o loop,nodev,noexec gentoo-current.xz.sqfs var/db/repos/gentoo || bash
+  mount -rt squashfs -o loop,nodev,noexec var/db/snapshots/gentoo-current.xz.sqfs var/db/repos/gentoo || bash
 rm $FILE
 cp /etc/resolv.conf etc
 # make sure we are done with root unpack...
@@ -477,9 +479,10 @@ crontab /etc/crontab
 
 rc-update add named default
 
+if (grep -q usegitportage /proc/cmdline); then
 # move to git based portage tree
 umount /var/db/repos/gentoo
-rm /gentoo-current.xz.sqfs
+rm -rf /var/db/snapshots
 sed -i 's#sync-type = rsync#sync-type = git#' /etc/portage/repos.conf/gentoo.conf
 sed -i 's#sync-uri = rsync://rsync.gentoo.org/gentoo-portage#sync-uri = git://anongit.gentoo.org/repo/gentoo.git#' /etc/portage/repos.conf/gentoo.conf
 cd /var/db/repos/gentoo/
@@ -490,6 +493,7 @@ chown -R portage:portage .
 #if some lingring unexpected files are left behind remove it
 rmdir gentoo
 emerge --sync
+fi
 
 #todo if local ups... rc-update add apcupsd.powerfail shutdown
 #todo configure snmp and add to startup
