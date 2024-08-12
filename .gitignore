@@ -1,2 +1,5 @@
 *.iso
+*.iso.DIGESTS
+*.iso.asc
 *.qcow2
+kvm_lxgentootest*

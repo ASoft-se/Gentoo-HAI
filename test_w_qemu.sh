@@ -4,6 +4,9 @@ netscript="-nic user,model=virtio"
 
 DISK=kvm_lxgentootest.qcow2
 disktype="
+-device virtio-blk-pci,drive=d1
+"
+disktypeahci="
 -device ahci,id=ahci
 -device ide-hd,drive=d1,bus=ahci.0
 "
@@ -29,7 +32,10 @@ netscript="
   ;;
   useefi)
     USEEFI=YES
-    efibios="-bios usr/share/edk2.git/ovmf-x64/OVMF-pure-efi.fd"
+    cp /usr/share/edk2-ovmf/OVMF_VARS.fd kvm_lxgentootest_VARS.fd
+    #efibios="-smbios type=0,uefi=on -bios /usr/share/edk2-ovmf/OVMF_CODE.fd"
+    efibios="-drive if=pflash,unit=0,format=raw,readonly=on,file=/usr/share/edk2-ovmf/OVMF_CODE.fd \
+      -drive if=pflash,unit=1,format=raw,file=kvm_lxgentootest_VARS.fd"
   ;;
   usenvme)
     disktype="-device nvme,drive=d1,id=nvme1,serial=nonoptionalsn001"
@@ -38,6 +44,10 @@ netscript="
     echo "using -nographic, Ctrl+A, X exits"
     VNC=""
     VGA="-nographic"
+  ;;
+  -cdrom)
+    shift
+    POSITIONAL+=("-drive file=$1,if=none,media=cdrom,id=cd1 -device ahci,id=achi0 -device ide-cd,bus=achi0.0,drive=cd1")
   ;;
   -m)
     shift
@@ -69,13 +79,13 @@ set -- "${POSITIONAL[@]}" # restore positional parameters
 [[ "$VNC" != "" ]] && (sleep 3; vncviewer :22) &
 
 set -x
-jn=$(nproc)
+jn=$(($(nproc)/2))
 qemu-system-x86_64 -enable-kvm -M q35 -m $(($memorygb*1024)) -cpu host -smp $jn,cores=$jn,sockets=1 -name lxgentootest \
--drive id=d1,file=$DISK,format=qcow2,if=none,media=disk,index=1,cache=unsafe \
+-drive id=d1,file=$DISK,format=qcow2,if=none,media=disk,cache=unsafe \
 ${disktype} \
 $netscript \
 -device i6300esb -action watchdog=reset \
--boot menu=on -usb ${VGA} ${VNC} \
+-usb ${VGA} ${VNC} \
 ${efibios} \
 $*
 
