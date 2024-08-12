@@ -17,8 +17,8 @@ then
   # wait a bit for everything to come up, and oh the (Un)PredictableNetworkInterfaceNames Madness will make sure eth0 above no longer works.
   while : ; do
     # ping does not work in QEMU default network, su use http get instead.
-    curl -s raw.github.com > /dev/null && break
-    ping -c 1 raw.github.com && break
+    curl -s raw.githubusercontent.com > /dev/null && break
+    ping -c 1 raw.githubusercontent.com && break
     sleep 2
   done
   # Try to update to a correct system time

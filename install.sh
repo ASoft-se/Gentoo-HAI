@@ -8,8 +8,6 @@
 # root password will be set to SET_PASS parameter or "password" if not given
 # ssh server will be started on the live medium directly after the password have been set.
 #
-# Partitioning will be 100MB boot(ext2 or vfat if EFI) 4GB Swap and the rest root(ext4) on /dev/sda
-#
 # Hostname will be set to the same as the host
 # Keyboard layout will be configured to be swedish (sv-latin1) and timezone Europe/Stockholm (and ntp.se will be used as a timeserver)
 #
@@ -22,6 +20,7 @@ if [ -b /dev/nvme0n1 ]; then
   NVMETOOLS=sys-apps/nvme-cli
   NVMEKERNEL=CONFIG_BLK_DEV_NVME=y
 fi
+[[ -b /dev/vda ]] && [[ ! -b /dev/sda ]] && IDEV=${IDEV:-/dev/vda}
 
 IDEV=${IDEV:-/dev/sda}
 IDEVP=${IDEV}
@@ -122,28 +121,33 @@ cd /mnt/gentoo || exit 1
 #cleanup in case of previous try...
 [ -f "*.tar.{bz2,xz,sqfs}" ] && rm *.tar.{bz2,xz,sqfs}
 DISTMIRROR=http://distfiles.gentoo.org
-wget ${DISTMIRROR}/snapshots/squashfs/gentoo-current.xz.sqfs &
 wget ${DISTMIRROR}/snapshots/squashfs/sha512sum.txt
+SNAPSHOT=$(grep -o -E "\w*-[0-9]*\.xz.sqfs" sha512sum.txt | sort -r | head -1)
+# Use rsync for later updates
+wget ${DISTMIRROR}/snapshots/squashfs/$SNAPSHOT &
 DISTBASE=${DISTMIRROR}/releases/amd64/autobuilds/current-stage3-amd64-openrc/
 FILE=$(wget -q $DISTBASE -O - | grep -o -E 'stage3-amd64-openrc-\w*\.tar\.xz' | sort -r | head -1)
-[ -z "$FILE" ] && echo No stage3 found on $DISTBASE && exit 1
-echo download latest stage file $FILE
+[ -z "$FILE" ] && echo -e "\e[91mNo stage3 found on $DISTBASE\e[0m" && exit 1
+echo -e "\e[93mdownload latest stage file $FILE\e[0m"
 wget $DISTBASE$FILE || bash
 wget $DISTBASE$FILE.DIGESTS || bash
-wait $pid_gpg
+wait $pid_gpg > /dev/null
 gpg --verify $FILE.DIGESTS || bash
 echo "Verifying stage3 SHA512 ..."
 # grab SHA512 lines and line after, then filter out line that ends with iso
 echo "$(grep -A1 SHA512 $FILE.DIGESTS | grep $FILE\$)" | sha512sum -c || bash
-echo " - Awesome! stage3 verification looks good."
+echo -e "- \e[92mAwesome!\e[0m stage3 verification looks good."
 rm $FILE.DIGESTS
 time tar xpf $FILE --xattrs-include='*.*' --numeric-owner
 
 wait || exit 1
 gpg --verify sha512sum.txt || bash
-echo "Verifying snapshot SHA512 ..."
-echo "$(grep gentoo-current.xz.sqfs sha512sum.txt)" | sha512sum -c || bash
-echo " - Awesome! snapshot verification looks good."
+ls -lha
+mv $SNAPSHOT gentoo-current.xz.sqfs || bash
+snapshot512=$(sha512sum gentoo-current.xz.sqfs | awk '{print $1}')
+echo -e "\e[93mSnapshot  SHA512 $snapshot512 ...\e[0m"
+echo -e "\e[93mExpecting SHA512 $(grep gentoo-current.xz.sqfs sha512sum.txt)\e[0m"
+grep $snapshot512 sha512sum.txt && echo -e " \e[92m - OK\e[0m" || (echo " \e[91mnot found in sha512sum.txt\e[0m"; bash)
 rm sha512sum.txt
 mkdir -p var/db/repos/gentoo && \
   mount -rt squashfs -o loop,nodev,noexec gentoo-current.xz.sqfs var/db/repos/gentoo || bash
@@ -237,9 +241,7 @@ echo "root:${SET_PASS}" | chpasswd
 mv system-auth.bak /etc/pam.d/system-auth
 set -x
 mount /var/tmp
-# ensure portage tree
-emerge-webrsync -v
-getuto
+getuto & > /dev/null
 export FEATURES="getbinpkg"
 export EMERGE_DEFAULT_OPTS="--binpkg-respect-use=y"
 
@@ -260,6 +262,7 @@ grep -q net-dns/bind /etc/portage/package.use/* || echo net-dns/bind dlz idn cap
 touch /etc/udev/rules.d/80-net-name-slot.rules &
 # they made it unpredictable and changed the name, so lets be future prof
 touch /etc/udev/rules.d/80-net-setup-link.rules &
+wait
 time emerge -uvN1 -j8 --keep-going y portage gentoolkit cpuid2cpuflags || bash
 #snmp support in current apcupsd is buggy
 grep -q sys-power/apcupsd /etc/portage/package.use/* || echo sys-power/apcupsd -snmp >> /etc/portage/package.use/apcupsd
@@ -271,10 +274,7 @@ echo "*/* \$(cpuid2cpuflags)" > /etc/portage/package.use/00cpuflags
 
 #start out with being up2date
 #we expect that this can fail
-time emerge -uv1N -j2 openssl openssh
 time emerge -uvDN -j4 --keep-going y world --exclude gcc glibc
-etc-update --automode -5
-time revdep-rebuild -vi -- -j4
 etc-update --automode -5
 
 [ -f /etc/portage/package.mask/gentoo.conf ] || cp /usr/share/portage/config/repos.conf /etc/portage/repos.conf/gentoo.conf
@@ -287,13 +287,11 @@ ntpdate ntp.se
 #rerun make sure up2date
 time emerge -uvDN -j4 world --exclude gcc glibc || bash
 etc-update --automode -5
-time revdep-rebuild -vi -- -j4
-etc-update --automode -5
 
 eselect kernel set 1
 cd /usr/src/linux
 #getting a base kernel config
-wget https://raw.github.com/ASoft-se/Gentoo-HAI/master/krn330.conf -O .config
+wget https://raw.githubusercontent.com/ASoft-se/Gentoo-HAI/master/krn330.conf -O .config
 echo "
 # Gentoo Linux
 CONFIG_GENTOO_LINUX=y
@@ -385,15 +383,14 @@ CONFIG_SERIAL_8250_DEPRECATED_OPTIONS=n
 sed -i 's#/usr/share/v86d/initramfs##' .config
 echo "x
 y
-" | make menuconfig
+" | make menuconfig > /dev/null
 time make -j$(($(nproc)*2)) bzImage modules && make modules_install install || bash
 ls -lh /boot
 cd /boot
 ln -s vmlinuz-* vmlinuz && cd /usr/src/linux && make install
 ls -lh /boot
 
-grub-install /dev/sda
-sed -i '/\^//' /etc/default/grub
+grub-install ${IDEV}
 sed -i 's/^#GRUB_DISABLE_LINUX_UUID=[a-z]*/GRUB_DISABLE_LINUX_UUID=true/' /etc/default/grub
 sed -i 's/^#GRUB_CMDLINE_LINUX_DEFAULT=""/GRUB_CMDLINE_LINUX_DEFAULT="rootfstype=ext4 panic=30 vga=791"/' /etc/default/grub
 sed -i 's/^#*GRUB_TIMEOUT=[0-9]+/GRUB_TIMEOUT=3/' /etc/default/grub
@@ -406,8 +403,6 @@ grub-mkconfig -o /boot/grub/grub.cfg
 
 cd /etc
 ln -fs /usr/share/zoneinfo/Europe/Stockholm localtime
-touch /lib64/rc/init.d/softlevel
-#make sure everything is up2date
 sed -i 's/^#CHROOT=/CHROOT=/' /etc/conf.d/named
 emerge --config net-dns/bind
 # fix some possibly missing files #51 just in case
@@ -421,7 +416,6 @@ dispatch-conf
 
 #todo fix with sed ... but virtual machine dont save clock ;)
 #mcedit /etc/conf.d/hwclock
-#touch /lib64/rc/init.d/softlevel
 #/etc/init.d/hwclock save
 sed -i 's/^c1:12345:respawn:\/sbin\/agetty .* tty1 linux\$/& --noclear/' /etc/inittab || bash
 cd /etc/init.d
@@ -432,7 +426,6 @@ rc-update add *cron* default
 rc-update add atftp default
 sed -i 's/^#PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
 rc-update add sshd default
-/etc/init.d/sshd gen_keys
 
 # Start creating fix script
 echo # Remove udev rules that make network interface names compleatly unpredictable and unmanagable. > /etc/local.d/remove.net.rules.start
