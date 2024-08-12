@@ -279,14 +279,10 @@ etc-update --automode -5
 
 [ -f /etc/portage/package.mask/gentoo.conf ] || cp /usr/share/portage/config/repos.conf /etc/portage/repos.conf/gentoo.conf
 
-time emerge -uv -j8 installkernel gentoo-sources mlocate postfix iproute2 bind bind-tools dhcp atftp dhcpcd app-misc/mc pciutils usbutils smartmontools syslog-ng virtual/cron ntp lsof ${NVMETOOLS} || bash
+time emerge -uv -j8 installkernel grub gentoo-sources pciutils usbutils ntp iproute2 ${NVMETOOLS} || bash
 mkdir /tftproot
-time emerge -uv -j8 iptables nftables grub || bash
 lspci
 ntpdate ntp.se
-#rerun make sure up2date
-time emerge -uvDN -j4 world --exclude gcc glibc || bash
-etc-update --automode -5
 
 eselect kernel set 1
 cd /usr/src/linux
@@ -403,6 +399,11 @@ grub-mkconfig -o /boot/grub/grub.cfg
 
 cd /etc
 ln -fs /usr/share/zoneinfo/Europe/Stockholm localtime
+emerge -uv -j8 --keep-going y iptables nftables net-snmp dev-vcs/git php openvpn apcupsd iotop iftop ddrescue tcpdump nmap netkit-telnetd dmidecode hdparm \
+ mlocate postfix bind bind-tools dhcp atftp dhcpcd app-misc/mc smartmontools syslog-ng virtual/cron ntp lsof || bash
+#rerun make sure up2date
+time emerge -uvDN -j4 world --exclude gcc glibc || bash
+etc-update --automode -5
 sed -i 's/^#CHROOT=/CHROOT=/' /etc/conf.d/named
 emerge --config net-dns/bind
 # fix some possibly missing files #51 just in case
@@ -451,11 +452,6 @@ echo -e "*/30  *  * * *\troot\tntpdate -s ntp.se" >> /etc/crontab
 crontab /etc/crontab
 
 rc-update add named default
-sleep 5 || bash
-
-# fix problem with apcupsd...
-[ -d /run/lock ] || mkdir /run/lock
-emerge -uv -j8 net-snmp dev-vcs/git php openvpn apcupsd iotop iftop ddrescue tcpdump nmap netkit-telnetd dmidecode hdparm || bash
 
 # move to git based portage tree
 umount /var/db/repos/gentoo
