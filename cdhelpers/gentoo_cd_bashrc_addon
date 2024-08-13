@@ -24,7 +24,7 @@ then
   # Try to update to a correct system time
   ntpdate ntp.se &
   if [ ! -f g-install.sh ]; then
-    wget https://raw.github.com/ASoft-se/Gentoo-HAI/master/install.sh? -O g-install.sh
+    wget https://raw.githubusercontent.com/ASoft-se/Gentoo-HAI/master/install.sh? -O g-install.sh
     echo We just downloaded g-install.sh that can be used to make a install...
   fi
   grep -q autoinstall /proc/cmdline && sh g-install.sh
