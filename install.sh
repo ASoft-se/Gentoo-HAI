@@ -43,50 +43,69 @@ echo "trying to grab Gentoo releng & infrastructure gpg key in the background ..
 pid_gpg=$!
 
 PLATFORM=pcbios
-boottype=83
-bootmnt=/boot
-bootfstype=ext2
 if [ -d /sys/firmware/efi ]; then
   PLATFORM=efi
-  boottype=c
-  bootmnt=/boot/efi
-  bootfstype=vfat
 fi
 
-#Create a 100MB boot 4GB Swap and the rest root on ${IDEV}
-echo "
-p
-o
-n
-p
+#Create bios boot, 128MB boot, 128MB EFI, 4GB Swap and the rest root on ${IDEV}
+echo "gpt
+print
+new
+99
 
++2M
+type
+21686148-6449-6E6F-744E-656564454649
+xpert
+A
+return
+new
+1
 
-+100M
-t
-L
-${boottype}
-n
-p
++128M
+new
+2
 
++128M
+type
+2
+uefi
+new
+3
 
 +4G
-t
-2
-82
-n
-p
-
-
-
-t
+type
 3
-83
-n
-p
+swap
+new
+4
 
 
-w
+type
+4
+4F68BCE3-E8CD-4DB1-96E7-FBCAF984B709
+xpert
+name
+1
+/boot
+name
+2
+/boot/efi
+name
+3
+swap0
+name
+4
+/
+name
+99
+GRUB BIOS Data
+return
+print
+write
 " | fdisk ${IDEV} || exit 1
+sfdisk -d ${IDEV}
+file -s ${IDEV}
 # Wait a bit for the dust to settle on the new devices
 sleep 1
 
@@ -101,19 +120,17 @@ sleep 1
 #mdadm -Cv /dev/md3 -l1 -n2 /dev/sd[ab]3 --metadata=0.90 || exit 1
 #mdadm -Cv /dev/md4 -l4 -n3 /dev/sd[ab]4 missing --metadata=0.90 || exit 1
 
-mkswap -L swap0 ${IDEVP}2 || exit 1
-#mkswap -L swap1 /dev/sdb2 || exit 1
+mkswap -L swap0 ${IDEVP}3 || exit 1
+swapon -p1 ${IDEVP}3 || exit 1
+mkfs.ext2 ${IDEVP}1 || exit 1
+mkfs.vfat ${IDEVP}2 || exit 1
+mkfs.ext4 ${IDEVP}4 || exit 1
 
-swapon -p1 ${IDEVP}2 || exit 1
-
-mkfs.${bootfstype} ${IDEVP}1 || exit 1
-mkfs.ext4 ${IDEVP}3 || exit 1
-
-#cat /proc/mdstat
-
-mount ${IDEVP}3 /mnt/gentoo -o discard,noatime || exit 1
-mkdir -p /mnt/gentoo${bootmnt} || exit 1
-mount ${IDEVP}1 /mnt/gentoo${bootmnt} || exit 1
+mount ${IDEVP}4 /mnt/gentoo -o discard,noatime || exit 1
+mkdir -p /mnt/gentoo/boot || exit 1
+mount ${IDEVP}1 /mnt/gentoo/boot || exit 1
+mkdir -p /mnt/gentoo/boot/efi || exit 1
+mount ${IDEVP}2 /mnt/gentoo/boot/efi || exit 1
 
 # wait to make sure ntpdate is done
 wait $pid_ntp
@@ -160,8 +177,9 @@ hostname=\"$(hostname)\"
 " > etc/conf.d/hostname
 #change fstab to match disk layout
 echo -e "
-${IDEVP}1		${bootmnt}		${bootfstype}		noauto,noatime	1 2
-${IDEVP}3		/		ext4		discard,noatime	0 1
+${IDEVP}1		/boot		ext2		noauto,noatime	1 2
+${IDEVP}2		/boot/efi		vfat		noauto,noatime	1 2
+${IDEVP}4		/		ext4		discard,noatime	0 1
 LABEL=swap0		none		swap		sw		0 0
 
 none			/var/tmp	tmpfs		size=4G,nr_inodes=1M 0 0
@@ -169,7 +187,9 @@ none			/var/tmp	tmpfs		size=4G,nr_inodes=1M 0 0
 sed -i '/\/dev\/BOOT.*/d' etc/fstab
 sed -i '/\/dev\/ROOT.*/d' etc/fstab
 sed -i '/\/dev\/SWAP.*/d' etc/fstab
-for p in sys dev proc; do mount /$p $p -o bind; done  || exit 1
+mount --types proc /proc proc
+for p in sys dev; do mount --rbind /$p $p; mount --make-rslave $p; done  || exit 1
+for p in run; do mount --bind /$p $p; mount --make-slave $p; done  || exit 1
 
 MAKECONF=etc/portage/make.conf
 [ ! -f $MAKECONF ] && [ -f etc/make.conf ] && MAKECONF=etc/make.conf
@@ -384,9 +404,10 @@ time make -j$(($(nproc)*2)) bzImage modules && make modules_install install || b
 ls -lh /boot
 cd /boot
 ln -s vmlinuz-* vmlinuz && cd /usr/src/linux && make install
-ls -lh /boot
 
-grub-install ${IDEV}
+grub-install --target=x86_64-efi --efi-directory=/boot/efi ${IDEV}
+grub-install --target=x86_64-efi --efi-directory=/boot/efi --removable ${IDEV}
+grub-install --target=i386-pc ${IDEV}
 sed -i 's/^#GRUB_DISABLE_LINUX_UUID=[a-z]*/GRUB_DISABLE_LINUX_UUID=true/' /etc/default/grub
 sed -i 's/^#GRUB_CMDLINE_LINUX_DEFAULT=""/GRUB_CMDLINE_LINUX_DEFAULT="rootfstype=ext4 panic=30 vga=791"/' /etc/default/grub
 sed -i 's/^#*GRUB_TIMEOUT=[0-9]+/GRUB_TIMEOUT=3/' /etc/default/grub
@@ -396,6 +417,7 @@ grep -q console= /proc/cmdline && echo 'GRUB_SERIAL_COMMAND="serial --speed=1152
 # enable in inittab
 grep -q console= /proc/cmdline && sed -i 's/^#s0:/s0:/' /etc/inittab
 grub-mkconfig -o /boot/grub/grub.cfg
+ls -lh /boot; find /boot/efi; efibootmgr
 
 cd /etc
 ln -fs /usr/share/zoneinfo/Europe/Stockholm localtime
