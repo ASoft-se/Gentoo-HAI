@@ -299,7 +299,7 @@ etc-update --automode -5
 
 [ -f /etc/portage/package.mask/gentoo.conf ] || cp /usr/share/portage/config/repos.conf /etc/portage/repos.conf/gentoo.conf
 
-time emerge -uv -j8 installkernel grub gentoo-sources pciutils usbutils ntp iproute2 ${NVMETOOLS} || bash
+time emerge -uv -j8 installkernel grub gentoo-sources pciutils usbutils ntp iproute2 sys-apps/memtest86+ ${NVMETOOLS} || bash
 mkdir /tftproot
 lspci
 ntpdate ntp.se
