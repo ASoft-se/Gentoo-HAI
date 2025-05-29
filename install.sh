@@ -425,7 +425,7 @@ ls -lh /boot; find /boot/efi; efibootmgr
 
 cd /etc
 ln -fs /usr/share/zoneinfo/Europe/Stockholm localtime
-emerge -uv -j8 --keep-going y iptables nftables net-snmp dev-vcs/git php openvpn apcupsd iotop iftop ddrescue tcpdump nmap netkit-telnetd dmidecode hdparm \
+emerge -uv -j8 --keep-going y iptables nftables net-snmp dev-vcs/git apcupsd iotop iftop ddrescue tcpdump nmap netkit-telnetd dmidecode hdparm \
  mlocate postfix bind dhcp atftp dhcpcd app-misc/mc smartmontools syslog-ng virtual/cron ntp lsof || bash
 #rerun make sure up2date
 time emerge -uvDN -j4 world --exclude gcc glibc || bash
