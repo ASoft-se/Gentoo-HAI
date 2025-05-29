@@ -404,7 +404,7 @@ sed -i 's#/usr/share/v86d/initramfs##' .config
 echo "x
 y
 " | make menuconfig > /dev/null
-time make -j$(($(nproc)*2)) bzImage modules && make modules_install install || bash
+time make -s -j$(($(nproc)*2)) bzImage modules && make modules_install install || bash
 ls -lh /boot
 cd /boot
 ln -s vmlinuz-* vmlinuz && cd /usr/src/linux && make install
