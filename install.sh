@@ -184,7 +184,7 @@ ${IDEVP}2		/boot/efi		vfat		noauto,noatime	1 2
 ${IDEVP}4		/		ext4		discard,noatime	0 1
 LABEL=swap0		none		swap		sw		0 0
 
-none			/var/tmp	tmpfs		size=4G,nr_inodes=1M 0 0
+none			/var/tmp	tmpfs		size=6G,nr_inodes=1M 0 0
 " >> etc/fstab
 sed -i '/\/dev\/BOOT.*/d' etc/fstab
 sed -i '/\/dev\/ROOT.*/d' etc/fstab
