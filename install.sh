@@ -38,9 +38,6 @@ set -x
 # Try to update to a correct system time
 ntpdate ntp.se &
 pid_ntp=$!
-echo "trying to grab Gentoo releng & infrastructure gpg key in the background ..."
-(gpg --locate-key releng@gentoo.org; gpg --locate-key infrastructure@gentoo.org) &
-pid_gpg=$!
 
 PLATFORM=pcbios
 if [ -d /sys/firmware/efi ]; then
@@ -137,35 +134,54 @@ wait $pid_ntp
 cd /mnt/gentoo || exit 1
 #cleanup in case of previous try...
 [ -f "*.tar.{bz2,xz,sqfs}" ] && rm *.tar.{bz2,xz,sqfs}
-DISTMIRROR=http://distfiles.gentoo.org
-wget ${DISTMIRROR}/snapshots/squashfs/sha512sum.txt
-SNAPSHOT=$(grep -o -E "\w*-[0-9]*\.xz.sqfs" sha512sum.txt | sort -r | head -1)
-# Use rsync for later updates
-wget ${DISTMIRROR}/snapshots/squashfs/$SNAPSHOT &
+DISTMIRROR=https://distfiles.gentoo.org
 DISTBASE=${DISTMIRROR}/releases/amd64/autobuilds/current-stage3-amd64-openrc/
-FILE=$(wget -q $DISTBASE -O - | grep -o -E 'stage3-amd64-openrc-\w*\.tar\.xz' | sort -r | head -1)
+curl -L -C - --remote-name-all --parallel-immediate --parallel \
+  https://qa-reports.gentoo.org/output/service-keys.gpg \
+  ${DISTMIRROR}/snapshots/squashfs/sha512sum.txt
+
+# gpg import, trust starting with Gentoo L1 signing key
+gpg \
+  --trusted-key ABD00913019D6354BA1D9A132839FE0D796198B1 \
+  --import service-keys.gpg
+echo "Ensure Gentoo releng & infrastructure gpg keys ..."
+gpg --locate-key releng@gentoo.org; gpg --locate-key infrastructure@gentoo.org
+
+gpg \
+  --output sha512sum.verified.txt  \
+  --verify sha512sum.txt \
+  && rm sha512sum.txt
+
+# WARNING: prepare for this file to change format in future to BSD-like tagged checksum
+expected_checksum_and_file=$(awk  '/\<gentoo-[0-9]*\.xz\.sqfs/{l=$0}END{print l}' sha512sum.verified.txt)
+SNAPSHOT=${expected_checksum_and_file//* }
+# Use rsync for later updates
+curl -C - --remote-name-all "${DISTMIRROR}/snapshots/squashfs/$SNAPSHOT" &
+
+FILE=$(curl -q $DISTBASE --output - | grep -o -E 'stage3-amd64-openrc-\w*\.tar\.xz' | sort -r | head -1)
 [ -z "$FILE" ] && echo -e "\e[91mNo stage3 found on $DISTBASE\e[0m" && exit 1
 echo -e "\e[93mdownload latest stage file $FILE\e[0m"
-wget $DISTBASE$FILE || bash
-wget $DISTBASE$FILE.DIGESTS || bash
-wait $pid_gpg > /dev/null
-gpg --verify $FILE.DIGESTS || bash
+curl -L -C - --remote-name-all --parallel-immediate --parallel \
+  $DISTBASE$FILE $DISTBASE$FILE.DIGESTS $DISTBASE$FILE.asc || bash
+
+gpg --output $FILE.DIGESTS.verified --verify $FILE.DIGESTS && rm $FILE.DIGESTS
+gpg --verify $FILE.asc || bash
 echo "Verifying stage3 SHA512 ..."
 # grab SHA512 lines and line after, then filter out line that ends with iso
-echo "$(grep -A1 SHA512 $FILE.DIGESTS | grep $FILE\$)" | sha512sum -c || bash
+echo "$(grep -A1 SHA512 $FILE.DIGESTS.verified | grep $FILE\$)" | sha512sum -c || bash
 echo -e "- \e[92mAwesome!\e[0m stage3 verification looks good."
-rm $FILE.DIGESTS
+rm $FILE.DIGESTS.verified
+rm $FILE.asc
 time tar xpf $FILE --xattrs-include='*.*' --numeric-owner
 
 wait || exit 1
-gpg --verify sha512sum.txt || bash
 ls -lha
 mv $SNAPSHOT gentoo-current.xz.sqfs || bash
 snapshot512=$(sha512sum gentoo-current.xz.sqfs | awk '{print $1}')
 echo -e "\e[93mSnapshot  SHA512 $snapshot512 ...\e[0m"
 echo -e "\e[93mExpecting SHA512 $(grep gentoo-current.xz.sqfs sha512sum.txt)\e[0m"
-grep $snapshot512 sha512sum.txt && echo -e " \e[92m - OK\e[0m" || (echo " \e[91mnot found in sha512sum.txt\e[0m"; bash)
-rm sha512sum.txt
+grep $snapshot512 sha512sum.verified.txt && echo -e " \e[92m - OK\e[0m" || (echo " \e[91mnot found in sha512sum.txt\e[0m"; bash)
+rm sha512sum.verified.txt
 mkdir -p var/db/snapshots
 mv gentoo-current.xz.sqfs var/db/snapshots
 mkdir -p var/db/repos/gentoo && \
