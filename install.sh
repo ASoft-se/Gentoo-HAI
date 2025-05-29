@@ -219,6 +219,7 @@ echo $MAKECONF
 echo >> $MAKECONF
 echo "# add valid -march= to CFLAGS" >> $MAKECONF
 echo "MAKEOPTS=\"-j$(nproc)\"" >> $MAKECONF
+echo "EMERGE_DEFAULT_OPTS=\"\${EMERGE_DEFAULT_OPTS} --getbinpkg\"" >> $MAKECONF
 echo "FEATURES=\"parallel-fetch buildpkg\"" >> $MAKECONF
 # tty-helpers is needed py apcupsd
 echo "USE=\"\${USE} -X iproute2 logrotate snmp tty-helpers\"" >> $MAKECONF
@@ -280,8 +281,6 @@ mv system-auth.bak /etc/pam.d/system-auth
 set -x
 mount /var/tmp
 getuto & > /dev/null
-export FEATURES="getbinpkg"
-export EMERGE_DEFAULT_OPTS="--binpkg-respect-use=y"
 
 # fix for new mtab init
 ln -snf /proc/self/mounts /etc/mtab
