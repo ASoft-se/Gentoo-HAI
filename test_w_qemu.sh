@@ -30,6 +30,14 @@ netscript="
 -net tap,script=no,downscript=no,ifname=$netdev
 "
   ;;
+  -bridge)
+shift
+netdev=$1
+netscript="
+-net nic,macaddr=52:54:00:53:27:00,model=virtio
+-net bridge,br=$netdev
+"
+  ;;
   useefi)
     USEEFI=YES
     cp /usr/share/edk2-ovmf/OVMF_VARS.fd kvm_lxgentootest_VARS.fd
