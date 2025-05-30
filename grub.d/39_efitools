@@ -1,0 +1,37 @@
+#!/bin/sh
+
+. /usr/share/grub/grub-mkconfig_lib
+
+submenu_indentation=""
+        cat <<EOF
+if [ "x\$grub_platform" = xefi ]; then
+EOF
+for efibin in /boot/efi/EFI/BOOT/*x64.efi; do
+    desc="$(basename ${efibin}) 64bit UEFI"
+    case ${efibin} in
+        *BOOTX64.EFI)
+            continue
+            ;;
+        *shellx64.efi)
+            desc="UEFI Shell x64"
+            ;;
+        *ipxex64.efi)
+            desc="iPXE x64 UEFI"
+            ;;
+    esac
+        gettext_printf "Found image: %s (%s)\n" "${efibin}" "${desc}" >&2
+
+        device="$("${grub_probe}" --target=device "${efibin}")"
+        path="$(make_system_path_relative_to_its_root "${efibin}")"
+        cat <<EOF
+${submenu_indentation}menuentry '${desc}' {
+EOF
+                prepare_grub_to_access_device "${device}" | grub_add_tab
+        cat <<EOF
+        ${submenu_indentation}chainloader "${path}"
+${submenu_indentation}}
+EOF
+done
+cat <<EOF
+fi
+EOF

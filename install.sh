@@ -39,6 +39,7 @@ fi
 SET_PASS=${SET_PASS:-password}
 
 set -x -u
+GHBASEURL="https://raw.githubusercontent.com/ASoft-se/Gentoo-HAI/refs/heads/master"
 # Try to update to a correct system time
 sntp $NTPSERVER &
 pid_ntp=$!
@@ -136,7 +137,7 @@ wait $pid_ntp
 cd /mnt/gentoo || exit 1
 #cleanup in case of previous try...
 [ -f "*.tar.{bz2,xz,sqfs}" ] && rm *.tar.{bz2,xz,sqfs}
-[ -f portagehelper.sh ] || curl -L --remote-name-all https://raw.githubusercontent.com/ASoft-se/Gentoo-HAI/refs/heads/master/portagehelper.sh -O
+[ -f portagehelper.sh ] || curl -L --remote-name-all ${GHBASEURL}/portagehelper.sh -O
 sha512sum -c <<<"fc4727ec899d46b53637917bf6fe69d51645d28d1fd2cd10bd989aa0787af8fc236bcc517d83e0ee575a15f70a641c597000cf53fc25039e3caec9690848c152  portagehelper.sh" || bash
 . ./portagehelper.sh || bash
 DISTBASE=${DISTMIRROR}/releases/amd64/autobuilds/current-stage3-amd64-openrc/
@@ -306,7 +307,7 @@ lspci
 eselect kernel set 1
 cd /usr/src/linux
 #getting a base kernel config
-wget https://raw.githubusercontent.com/ASoft-se/Gentoo-HAI/master/krn330.conf -O .config
+wget ${GHBASEURL}/krn330.conf -O .config
 echo "
 # Gentoo Linux
 CONFIG_GENTOO_LINUX=y
@@ -405,6 +406,12 @@ ls -lh /boot
 cd /boot
 ln -s vmlinuz-* vmlinuz && cd /usr/src/linux && make install
 
+mkdir -p /boot/efi/EFI/BOOT/
+curl https://boot.ipxe.org/ipxe.efi -o /boot/efi/EFI/BOOT/ipxex64.efi
+curl https://boot.ipxe.org/Shell.efi -o /boot/efi/EFI/BOOT/shellx64.efi
+[ -f /etc/grub.d/39_efitools ] || curl -L ${GHBASEURL}/grub.d/39_efitools -o /etc/grub.d/39_efitools
+sha512sum -c <<<"cae63738889e626906270c6ad853970340d83044363680db97a70fdc8b6ec7960ba9ea7553afaf79bd8b64a61800ecf782742509e9e84d1c60b1e1e6de9d5346  /etc/grub.d/39_efitools" || bash
+chmod a+x /etc/grub.d/39_efitools
 grub-install --target=x86_64-efi --efi-directory=/boot/efi ${IDEV}
 grub-install --target=x86_64-efi --efi-directory=/boot/efi --removable ${IDEV}
 grub-install --target=i386-pc ${IDEV}
