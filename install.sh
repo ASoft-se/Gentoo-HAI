@@ -119,9 +119,9 @@ sleep 1
 
 mkswap -L swap0 ${IDEVP}3 || exit 1
 swapon -p1 ${IDEVP}3 || exit 1
-mkfs.ext2 ${IDEVP}1 || exit 1
+echo y | mkfs.ext2 ${IDEVP}1 || exit 1
 mkfs.vfat ${IDEVP}2 || exit 1
-mkfs.ext4 ${IDEVP}4 || exit 1
+echo y | mkfs.ext4 ${IDEVP}4 || exit 1
 
 mount ${IDEVP}4 /mnt/gentoo -o discard,noatime || exit 1
 mkdir -p /mnt/gentoo/boot || exit 1
