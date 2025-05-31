@@ -300,7 +300,7 @@ touch /etc/udev/rules.d/80-net-name-slot.rules &
 # they made it unpredictable and changed the name, so lets be future prof
 touch /etc/udev/rules.d/80-net-setup-link.rules &
 wait
-time emerge -uvN1 -j8 --keep-going y portage gentoolkit cpuid2cpuflags || bash
+time emerge -uvN1 -j8 --keep-going y portage curl gentoolkit cpuid2cpuflags || bash
 #snmp support in current apcupsd is buggy
 grep -q sys-power/apcupsd /etc/portage/package.use/* || echo sys-power/apcupsd -snmp >> /etc/portage/package.use/apcupsd
 grep -q net-firewall/nftables /etc/portage/package.use/* || echo net-firewall/nftables xtables >> /etc/portage/package.use/nftables
