@@ -36,7 +36,7 @@ SET_PASS=${SET_PASS:-password}
 
 set -x
 # Try to update to a correct system time
-ntpdate ntp.se &
+sntp ntp.se &
 pid_ntp=$!
 
 PLATFORM=pcbios
@@ -129,7 +129,7 @@ mount ${IDEVP}1 /mnt/gentoo/boot || exit 1
 mkdir -p /mnt/gentoo/boot/efi || exit 1
 mount ${IDEVP}2 /mnt/gentoo/boot/efi || exit 1
 
-# wait to make sure ntpdate is done
+# wait to make sure sntp is done
 wait $pid_ntp
 cd /mnt/gentoo || exit 1
 #cleanup in case of previous try...
@@ -300,7 +300,8 @@ touch /etc/udev/rules.d/80-net-name-slot.rules &
 # they made it unpredictable and changed the name, so lets be future prof
 touch /etc/udev/rules.d/80-net-setup-link.rules &
 wait
-time emerge -uvN1 -j8 --keep-going y portage curl gentoolkit cpuid2cpuflags || bash
+time USE=-snmp emerge -uvN1 -j8 --keep-going y portage curl ntp gentoolkit cpuid2cpuflags || bash
+sntp ntp.se
 #snmp support in current apcupsd is buggy
 grep -q sys-power/apcupsd /etc/portage/package.use/* || echo sys-power/apcupsd -snmp >> /etc/portage/package.use/apcupsd
 grep -q net-firewall/nftables /etc/portage/package.use/* || echo net-firewall/nftables xtables >> /etc/portage/package.use/nftables
@@ -319,7 +320,6 @@ etc-update --automode -5
 time emerge -uv -j8 installkernel grub gentoo-sources pciutils usbutils ntp iproute2 sys-apps/memtest86+ ${NVMETOOLS} || bash
 mkdir /tftproot
 lspci
-ntpdate ntp.se
 
 eselect kernel set 1
 cd /usr/src/linux
@@ -441,7 +441,7 @@ ls -lh /boot; find /boot/efi; efibootmgr
 cd /etc
 ln -fs /usr/share/zoneinfo/Europe/Stockholm localtime
 emerge -uv -j8 --keep-going y iptables nftables net-snmp dev-vcs/git apcupsd iotop iftop ddrescue tcpdump nmap netkit-telnetd dmidecode hdparm \
- mlocate postfix bind dhcp atftp dhcpcd app-misc/mc smartmontools syslog-ng virtual/cron ntp lsof || bash
+ mlocate postfix bind dhcp atftp dhcpcd app-misc/mc smartmontools syslog-ng virtual/cron lsof || bash
 #rerun make sure up2date
 time emerge -uvDN -j4 world --exclude gcc glibc || bash
 etc-update --automode -5
@@ -489,7 +489,7 @@ newaliases
 
 # TODO detect if username should be included or not
 #sed -i 's/\troot\t/\t/' /etc/crontab
-echo -e "*/30  *  * * *\troot\tntpdate -s ntp.se" >> /etc/crontab
+echo -e "*/30  *  * * *\troot\tsntp ntp.se" >> /etc/crontab
 crontab /etc/crontab
 
 rc-update add named default
