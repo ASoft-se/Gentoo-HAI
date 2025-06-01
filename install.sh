@@ -230,41 +230,40 @@ echo "keymap=\"sv-latin1\"" >> etc/conf.d/keymaps
 echo "rc_logger=\"YES\"" >> etc/rc.conf
 echo "rc_sys=\"\"" >> etc/rc.conf
 
-echo "
+cat > etc/conf.d/net << EOF
 # https://wiki.gentoo.org/wiki/Netifrc/Brctl_Migration
-config_br0=\"dhcp\"
-bridge_br0=\"eth0\"
+config_br0="dhcp"
+bridge_br0="eth0"
 bridge_forward_delay_br0=0
 bridge_stp_state_br0=0
-dhcp_br0=\"nodns nontp nonis nosendhost\"
+dhcp_br0="nodns nontp nonis nosendhost"
 
-#config_br0=\"192.168.0.251/24\"
-#routes_br0=\"default via 192.168.0.254\"
+#config_br0="192.168.0.251/24"
+#routes_br0="default via 192.168.0.254"
 
 config_eth0="null"
 rc_net_br0_need="net.eth0"
 
-config_eth1=\"null\"
-bridge_br1=\"eth1\"
+config_eth1="null"
+bridge_br1="eth1"
 
-config_br1=\"10.100.1.254/24\"
+config_br1="10.100.1.254/24"
 bridge_forward_delay_br1=0
 bridge_stp_state_br1=0
 
-vlans_eth1=\"101 120 140\"
-config_eth1_101=\"null\"
-config_eth1_120=\"10.100.20.254/24\"
-config_eth1_140=\"10.100.40.254/24\"
+vlans_eth1="101 120 140"
+config_eth1_101="null"
+config_eth1_120="10.100.20.254/24"
+config_eth1_140="10.100.40.254/24"
 
 
-tuntap_vpnUA=\"tap\"
+tuntap_vpnUA="tap"
 #keep same MAC
-mac_vpnUA=\"00:14:0A:01:64:65\"
-rc_before_vpnUA=\"openvpn.vpnua\"
-config_vpnUA=\"10.1.100.101/24\"
-routes_vpnUA=\"10.100.0.0/16 via 10.1.100.1\"
-
-" >> etc/conf.d/net
+mac_vpnUA="00:14:0A:01:64:65"
+rc_before_vpnUA="openvpn.vpnua"
+config_vpnUA="10.1.100.101/24"
+routes_vpnUA="10.100.0.0/16 via 10.1.100.1"
+EOF
 
 #generate chroot script
 cat > chrootstart.sh << EOF
