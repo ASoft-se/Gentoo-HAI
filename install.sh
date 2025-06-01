@@ -496,17 +496,13 @@ rc-update add named default
 
 if (grep -q usegitportage /proc/cmdline); then
 # move to git based portage tree
+emerge -j2 app-eselect/eselect-repository
 umount /var/db/repos/gentoo
 rm -rf /var/db/snapshots
-sed -i 's#sync-type = rsync#sync-type = git#' /etc/portage/repos.conf/gentoo.conf
-sed -i 's#sync-uri = rsync://rsync.gentoo.org/gentoo-portage#sync-uri = git://anongit.gentoo.org/repo/gentoo.git#' /etc/portage/repos.conf/gentoo.conf
-cd /var/db/repos/gentoo/
-git clone --depth 1 git://anongit.gentoo.org/repo/gentoo.git -n && mv gentoo/.git .
-git checkout -f
-git clean -d -x -f -q
-chown -R portage:portage .
-#if some lingring unexpected files are left behind remove it
-rmdir gentoo
+ # https://wiki.gentoo.org/wiki/Portage_with_Git
+eselect repository disable gentoo
+eselect repository enable gentoo
+#sed -i 's#sync-uri = .*#sync-uri = git://anongit.gentoo.org/repo/gentoo.git#' /etc/portage/repos.conf/eselect-repo.conf
 emerge --sync
 fi
 
