@@ -34,15 +34,12 @@ fi
 #IF NOT SET_PASS is set then the password will be "password"
 SET_PASS=${SET_PASS:-password}
 
-set -x
+set -x -u
 # Try to update to a correct system time
 sntp ntp.se &
 pid_ntp=$!
 
-PLATFORM=pcbios
-if [ -d /sys/firmware/efi ]; then
-  PLATFORM=efi
-fi
+[ -d /sys/firmware/efi ] && PLATFORM=efi || PLATFORM=pcbios
 
 #Create bios boot, 128MB boot, 128MB EFI, 4GB Swap and the rest root on ${IDEV}
 echo "gpt
@@ -305,7 +302,7 @@ grep -q sys-power/apcupsd /etc/portage/package.use/* || echo sys-power/apcupsd -
 # apcupsd requires wall which is included in util-linux iif tty-helpers is set
 grep -q sys-apps/util-linux /etc/portage/package.use/* || echo sys-apps/util-linux tty-helpers >> /etc/portage/package.use/apcupsd
 grep -q net-firewall/nftables /etc/portage/package.use/* || echo net-firewall/nftables xtables >> /etc/portage/package.use/nftables
-[[ ! -z "${NVMETOOLS}" ]] && (grep -q nvme /etc/portage/package.accept_keywords/* || echo ${NVMETOOLS} > /etc/portage/package.accept_keywords/nvme) &
+[[ ! -z "${NVMETOOLS:=}" ]] && (grep -q nvme /etc/portage/package.accept_keywords/* || echo ${NVMETOOLS} > /etc/portage/package.accept_keywords/nvme) &
 
 #add new CPU_FLAGS_X86
 echo "*/* \$(cpuid2cpuflags)" > /etc/portage/package.use/00cpuflags
@@ -404,7 +401,7 @@ CONFIG_NF_TABLES_IPV6=y
 CONFIG_NFT_CHAIN_ROUTE_IPV6=m
 
 # if we have nvme hardware
-${NVMEKERNEL}
+${NVMEKERNEL:-}
 
 # Serial console
 CONFIG_SERIAL_8250=y
