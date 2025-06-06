@@ -109,6 +109,7 @@ if [ "$AUTO" == "YES" ]; then
   # use console for -nographics, sga and curses
   sed -i 's/vga=791//' $bootmenufiles
   cp ../install.sh g-install.sh
+  cp ../portagehelper.sh .
 else
 # TODO color ths to make it readable
 echo -e "\n\tStarting separate shell, just exit if no changes should be done.\n\n\tWhen exit, the iso will be rebuilt."

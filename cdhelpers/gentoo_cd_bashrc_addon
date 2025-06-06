@@ -2,6 +2,7 @@
 if [ "$(hostname)" == "livecd" ] && (tty | grep -q -e tty1\$ -e ttyS0\$)
 then
   [ -f /mnt/cdrom/g-install.sh ] && cp /mnt/cdrom/g-install.sh .
+  [ -f /mnt/cdrom/portagehelper.sh ] && cp /mnt/cdrom/portagehelper.sh .
   setterm -blank 0
   hostname gtestinst
   #IF NOT SET_PASS is set then the password will be "password"

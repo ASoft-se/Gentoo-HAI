@@ -128,32 +128,19 @@ mount ${IDEVP}2 /mnt/gentoo/boot/efi || exit 1
 
 # wait to make sure sntp is done
 wait $pid_ntp
+[ -f portagehelper.sh ] && cp portagehelper.sh /mnt/gentoo
 cd /mnt/gentoo || exit 1
 #cleanup in case of previous try...
 [ -f "*.tar.{bz2,xz,sqfs}" ] && rm *.tar.{bz2,xz,sqfs}
-DISTMIRROR=https://distfiles.gentoo.org
+[ -f portagehelper.sh ] || curl -L --remote-name-all https://raw.githubusercontent.com/ASoft-se/Gentoo-HAI/refs/heads/master/portagehelper.sh -O
+sha512sum -c <<<"12f20324e31d4e19e96a281668a1c4e24f6fb879e7eb8f5861bf6ac4da73e08c6a3015de70d3b0bbb7e479c30977bb9e93dc8cb66c33996ea268a8a70a3070af  portagehelper.sh" || bash
+. ./portagehelper.sh || bash
 DISTBASE=${DISTMIRROR}/releases/amd64/autobuilds/current-stage3-amd64-openrc/
-curl -L -C - --remote-name-all --parallel-immediate --parallel \
-  https://qa-reports.gentoo.org/output/service-keys.gpg \
-  ${DISTMIRROR}/snapshots/squashfs/sha512sum.txt
+ensure_key_and_snap_source || bash
 
-# gpg import, trust starting with Gentoo L1 signing key
-gpg \
-  --trusted-key ABD00913019D6354BA1D9A132839FE0D796198B1 \
-  --import service-keys.gpg
-echo "Ensure Gentoo releng & infrastructure gpg keys ..."
-gpg --locate-key releng@gentoo.org; gpg --locate-key infrastructure@gentoo.org
-
-gpg \
-  --output sha512sum.verified.txt  \
-  --verify sha512sum.txt \
-  && rm sha512sum.txt
-
-# WARNING: prepare for this file to change format in future to BSD-like tagged checksum
-expected_checksum_and_file=$(awk  '/\<gentoo-[0-9]*\.xz\.sqfs/{l=$0}END{print l}' sha512sum.verified.txt)
-SNAPSHOT=${expected_checksum_and_file//* }
-# Use rsync for later updates
-curl -C - --remote-name-all "${DISTMIRROR}/snapshots/squashfs/$SNAPSHOT" &
+mkdir -p $pathrepo
+mkdir -p $pathsnapshots
+update_snapshot &
 
 FILE=$(curl -q $DISTBASE --output - | grep -o -E 'stage3-amd64-openrc-\w*\.tar\.xz' | sort -r | head -1)
 [ -z "$FILE" ] && echo -e "\e[91mNo stage3 found on $DISTBASE\e[0m" && exit 1
@@ -169,21 +156,11 @@ echo "$(grep -A1 SHA512 $FILE.DIGESTS.verified | grep $FILE\$)" | sha512sum -c |
 echo -e "- \e[92mAwesome!\e[0m stage3 verification looks good."
 rm $FILE.DIGESTS.verified
 rm $FILE.asc
-time tar xpf $FILE --xattrs-include='*.*' --numeric-owner
+time tar xpf $FILE --xattrs-include='*.*' --numeric-owner && rm $FILE
 
 wait || exit 1
-ls -lha
-mv $SNAPSHOT gentoo-current.xz.sqfs || bash
-snapshot512=$(sha512sum gentoo-current.xz.sqfs | awk '{print $1}')
-echo -e "\e[93mSnapshot  SHA512 $snapshot512 ...\e[0m"
-echo -e "\e[93mExpecting SHA512 $(grep gentoo-current.xz.sqfs sha512sum.txt)\e[0m"
-grep $snapshot512 sha512sum.verified.txt && echo -e " \e[92m - OK\e[0m" || (echo " \e[91mnot found in sha512sum.txt\e[0m"; bash)
-rm sha512sum.verified.txt
-mkdir -p var/db/snapshots
-mv gentoo-current.xz.sqfs var/db/snapshots
-mkdir -p var/db/repos/gentoo && \
-  mount -rt squashfs -o loop,nodev,noexec var/db/snapshots/gentoo-current.xz.sqfs var/db/repos/gentoo || bash
-rm $FILE
+mkdir root/.gnupg; chmod 700 root/.gnupg; cp ~/.gnupg/trustdb.gpg root/.gnupg/
+mount_current_snapshot || bash
 cp /etc/resolv.conf etc
 # make sure we are done with root unpack...
 
@@ -275,7 +252,11 @@ echo "root:${SET_PASS}" | chpasswd
 mv system-auth.bak /etc/pam.d/system-auth
 set -x
 mount /var/tmp
-getuto & > /dev/null
+
+vardb=/var/db
+. ./portagehelper.sh || bash
+ensure_snapshot_fstab
+time getuto & > /dev/null
 
 # fix for new mtab init
 ln -snf /proc/self/mounts /etc/mtab
