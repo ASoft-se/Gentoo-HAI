@@ -29,13 +29,12 @@ ensure_key_and_snap_source() {
 
   [ -z "$shaurl" ] && return 0
   # Validate sha512sum
-  verified=$(gpg \
+  # WARNING: prepare for this file to change format in future to BSD-like tagged checksum
+  expected_checksum_and_file=$(gpg \
     --trusted-key $TRUSTKEY \
     -o- \
-    --verify sha512sum.txt) \
+    --verify sha512sum.txt | awk '/\<gentoo-[0-9]*\.xz\.sqfs/{l=$0}END{print l}') \
     && rm sha512sum.txt || return 1
-  # WARNING: prepare for this file to change format in future to BSD-like tagged checksum
-  expected_checksum_and_file=$(awk '/\<gentoo-[0-9]*\.xz\.sqfs/{l=$0}END{print l}' <<< "$verified")
   SNAPSHOT=${expected_checksum_and_file//* }
   EXPECTED512=${expected_checksum_and_file// *}
 }
@@ -58,15 +57,14 @@ update_snapshot() {
     return 1
   }
 
-  [ -f "$pathsnapshots/$SNAPSHOT" ] || mv "$SNAPSHOT" "$pathsnapshots/$SNAPSHOT"
-  [ $(realpath "$SNAPSHOT") == $(realpath "$pathsnapshots/$SNAPSHOT") ] || mv "$SNAPSHOT" "$pathsnapshots/$SNAPSHOT"
+  [ -f "$pathsnapshots/$SNAPSHOT" ] && [ $(realpath "$SNAPSHOT") == $(realpath "$pathsnapshots/$SNAPSHOT") ] || mv "$SNAPSHOT" "$pathsnapshots/$SNAPSHOT"
 
   existingtarget=$(get_existing_target)
   [ "${existingtarget:-x}" == "$SNAPSHOT" ] && {
     echo -e "\e[92;1m - No update from $existingtarget\e[0m"
     return 0
   }
-  echo "\e[93;1m - Previous target: $existingtarget new: $SNAPSHOT\e[0m"
+  echo -e "\e[93;1m - Previous target: $existingtarget new: $SNAPSHOT\e[0m"
   pushd $pathsnapshots > /dev/null
   ln -s -f $SNAPSHOT $cursqfs
   popd > /dev/null
@@ -89,16 +87,30 @@ mount_current_snapshot() {
   mount -rt squashfs -o loop,nodev,noexec $pathsnapshots/$cursqfs $pathrepo || return 1
 }
 
+clean_old_snapshots() {
+  for snap in $pathsnapshots/gentoo-*.xz.sqfs; do
+    case $(basename $snap) in
+      $cursqfs | $existingtarget)
+      ;;
+      *)
+        rm "$snap"
+      ;;
+    esac
+  done
+}
+
 main_portagehelper() {
   mkdir -p $pathrepo
   mkdir -p $pathsnapshots
 
+  existingtarget=$(get_existing_target)
+  clean_old_snapshots
   pushd $pathsnapshots > /dev/null
   ensure_key_and_snap_source && update_snapshot || exit 1
   popd > /dev/null
   [ "${existingtarget:-x}" == "$SNAPSHOT" ] && snapshot_ismounted && return 0
 
-  ls -lh $pathsnapshots
+  ls --color=always -l --full-time $pathsnapshots
   ensure_snapshot_fstab
   mount_current_snapshot || exit 1
 }
