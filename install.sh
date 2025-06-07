@@ -9,11 +9,15 @@
 # ssh server will be started on the live medium directly after the password have been set.
 #
 # Hostname will be set to the same as the host
-# Keyboard layout will be configured to be swedish (sv-latin1) and timezone Europe/Stockholm (and ntp.se will be used as a timeserver)
+# Keyboard layout, timezone and ntp server see settings below
 #
 
 # Make sure our root mountpoint exists
 mkdir -p /mnt/gentoo
+
+TIMEZONE=${TIMEZONE:-/usr/share/zoneinfo}
+NTPSERVER=${NTPSERVER:-ntp.se}
+KEYMAP=${KEYMAP:-sv-latin1}
 
 if [ -b /dev/nvme0n1 ]; then
   IDEV=${IDEV:-/dev/nvme0n1}
@@ -36,7 +40,7 @@ SET_PASS=${SET_PASS:-password}
 
 set -x -u
 # Try to update to a correct system time
-sntp ntp.se &
+sntp $NTPSERVER &
 pid_ntp=$!
 
 [ -d /sys/firmware/efi ] && PLATFORM=efi || PLATFORM=pcbios
@@ -199,7 +203,7 @@ echo "USE=\"\${USE} -X iproute2 logrotate snmp\"" >> $MAKECONF
 
 grep -q autoinstall /proc/cmdline || nano $MAKECONF
 
-echo "keymap=\"sv-latin1\"" >> etc/conf.d/keymaps
+echo "keymap=\"$KEYMAP\"" >> etc/conf.d/keymaps
 
 echo "rc_logger=\"YES\"" >> etc/rc.conf
 echo "rc_sys=\"\"" >> etc/rc.conf
@@ -277,7 +281,7 @@ touch /etc/udev/rules.d/80-net-name-slot.rules &
 touch /etc/udev/rules.d/80-net-setup-link.rules &
 wait
 time USE=-snmp emerge -uvN1 -j8 --keep-going y portage curl ntp gentoolkit cpuid2cpuflags || bash
-sntp ntp.se
+sntp $NTPSERVER
 #snmp support in current apcupsd is buggy
 grep -q sys-power/apcupsd /etc/portage/package.use/* || echo sys-power/apcupsd -snmp >> /etc/portage/package.use/apcupsd
 # apcupsd requires wall which is included in util-linux iif tty-helpers is set
@@ -416,7 +420,7 @@ grub-mkconfig -o /boot/grub/grub.cfg
 ls -lh /boot; find /boot/efi; efibootmgr
 
 cd /etc
-ln -fs /usr/share/zoneinfo/Europe/Stockholm localtime
+ln -fs /usr/share/zoneinfo/$TIMEZONE localtime
 emerge -uv -j8 --keep-going y iptables nftables net-snmp dev-vcs/git apcupsd iotop iftop ddrescue tcpdump nmap netkit-telnetd dmidecode hdparm \
  mlocate postfix bind dhcp net-ftp/tftp-hpa dhcpcd app-misc/mc smartmontools syslog-ng virtual/cron lsof || bash
 #rerun make sure up2date
@@ -466,7 +470,7 @@ newaliases
 
 # TODO detect if username should be included or not
 #sed -i 's/\troot\t/\t/' /etc/crontab
-echo -e "*/30  *  * * *\troot\tsntp ntp.se" >> /etc/crontab
+echo -e "*/30  *  * * *\troot\tsntp $NTPSERVER" >> /etc/crontab
 crontab /etc/crontab
 
 rc-update add named default
