@@ -435,8 +435,6 @@ time emerge -uvDN -j4 world --exclude gcc glibc || bash
 etc-update --automode -5
 sed -i 's/^#CHROOT=/CHROOT=/' /etc/conf.d/named
 emerge --config net-dns/bind
-# ensure we remove dnssec-enable https://github.com/ASoft-se/Gentoo-HAI/issues/80 https://bugs.gentoo.org/956804
-sed -i "s#dnssec-enable#//dnssec-enable#" /etc/bind/named.conf
 find /chroot/dns
 #TODO sed fix syslog unix-stream("/chroot/dns/dev/log");
 sed -i 's/^# DHCPD_CHROOT=/DHCPD_CHROOT=/' /etc/conf.d/dhcpd
