@@ -396,6 +396,9 @@ CONFIG_SERIAL_8250_DEPRECATED_OPTIONS=n
 
 " >> .config
 
+# Remove old low CPU core count
+sed -i "/^CONFIG_NR_CPUS=.*$/d" .config
+
 # v86d is dead so remove its initramfs
 sed -i 's#/usr/share/v86d/initramfs##' .config
 echo "x
