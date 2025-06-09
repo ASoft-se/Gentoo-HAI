@@ -15,7 +15,7 @@
 # Make sure our root mountpoint exists
 mkdir -p /mnt/gentoo
 
-TIMEZONE=${TIMEZONE:-/usr/share/zoneinfo}
+TIMEZONE=${TIMEZONE:-Europe/Stockholm}
 NTPSERVER=${NTPSERVER:-ntp.se}
 KEYMAP=${KEYMAP:-sv-latin1}
 
