@@ -18,6 +18,7 @@ mkdir -p /mnt/gentoo
 TIMEZONE=${TIMEZONE:-Europe/Stockholm}
 NTPSERVER=${NTPSERVER:-ntp.se}
 KEYMAP=${KEYMAP:-sv-latin1}
+ROOTEMAIL=${ROOTEMAIL:-root@asoft.se}
 
 if [ -b /dev/nvme0n1 ]; then
   IDEV=${IDEV:-/dev/nvme0n1}
@@ -474,7 +475,7 @@ echo exit 0 >> /etc/local.d/remove.net.rules.start
 
 sed -i 's/^smtp.*inet/#&/' /etc/postfix/master.cf
 rc-update add postfix default
-echo root:           root@asoft.se >> /etc/mail/aliases
+echo -e "# Use newaliases after change\nroot:           $ROOTEMAIL" >> /etc/mail/aliases
 newaliases
 
 # TODO detect if username should be included or not
