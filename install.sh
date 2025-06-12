@@ -432,7 +432,7 @@ ls -lh /boot; find /boot/efi; efibootmgr
 cd /etc
 ln -fs /usr/share/zoneinfo/$TIMEZONE localtime
 emerge -uv -j8 --keep-going y iptables nftables net-snmp dev-vcs/git apcupsd iotop iftop ddrescue tcpdump nmap netkit-telnetd dmidecode hdparm \
- mlocate postfix bind dhcp net-ftp/tftp-hpa dhcpcd app-misc/mc smartmontools syslog-ng virtual/cron lsof || bash
+ mlocate postfix bind dhcp sys-apps/watchdog net-ftp/tftp-hpa dhcpcd app-misc/mc smartmontools syslog-ng virtual/cron lsof || bash
 #rerun make sure up2date
 time emerge -uvDN -j4 world --exclude gcc glibc || bash
 etc-update --automode -5
@@ -451,6 +451,7 @@ sed -i 's/^c1:12345:respawn:\/sbin\/agetty .* tty1 linux\$/& --noclear/' /etc/in
 cd /etc/init.d
 ln -s net.lo net.eth0
 ln -s net.lo net.br0
+rc-update add watchdog boot
 rc-update add syslog-ng default
 rc-update add *cron* default
 sed -i 's#^\#INTFTPD_PATH="/tftproot/"#INTFTPD_PATH="/tftproot/"#' /etc/conf.d/in.tftpd
