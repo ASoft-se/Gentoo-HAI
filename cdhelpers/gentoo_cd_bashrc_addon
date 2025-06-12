@@ -12,8 +12,7 @@ then
   echo "password required pam_unix.so" >> /etc/pam.d/system-auth
   echo "root:${SET_PASS}" | chpasswd
 
-  ip link set eth0 up && sleep 2
-  dhcpcd
+  (ps aux | grep -q [d]hcp) || (ip link set eth0 up && sleep 2 && dhcpcd)
   /etc/init.d/sshd start &
   # wait a bit for everything to come up, and oh the (Un)PredictableNetworkInterfaceNames Madness will make sure eth0 above no longer works.
   while : ; do
@@ -21,6 +20,7 @@ then
     curl -s raw.githubusercontent.com > /dev/null && break
     ping -c 1 raw.githubusercontent.com && break
     sleep 2
+    ip a
   done
   # Try to update to a correct system time
   chronyd -q 'server ntp.se iburst' &
