@@ -480,8 +480,9 @@ newaliases
 
 # TODO detect if username should be included or not
 #sed -i 's/\troot\t/\t/' /etc/crontab
-echo -e "*/30  *  * * *\troot\tsntp $NTPSERVER" >> /etc/crontab
-crontab /etc/crontab
+echo -e "*/30  *  * * *\troot\tsntp $NTPSERVER > /dev/null" >> /etc/crontab
+# some variants of cron needs to have default cron installed
+#crontab /etc/crontab
 
 rc-update add named default
 
