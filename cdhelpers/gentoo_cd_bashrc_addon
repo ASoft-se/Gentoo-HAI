@@ -24,7 +24,7 @@ then
   done
   # Try to update to a correct system time
   chronyd -q 'server ntp.se iburst' &
-  sntp ntp.se &
+  sntp -S ntp.se &
   if [ ! -f g-install.sh ]; then
     wget https://raw.githubusercontent.com/ASoft-se/Gentoo-HAI/master/install.sh? -O g-install.sh
     echo We just downloaded g-install.sh that can be used to make a install...

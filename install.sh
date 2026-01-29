@@ -42,7 +42,8 @@ SET_PASS=${SET_PASS:-password}
 set -x -u
 GHBASEURL="https://raw.githubusercontent.com/ASoft-se/Gentoo-HAI/refs/heads/master"
 # Try to update to a correct system time
-sntp $NTPSERVER &
+touch /var/db/ntp-kod
+sntp -S $NTPSERVER &
 pid_ntp=$!
 
 [ -d /sys/firmware/efi ] && PLATFORM=efi || PLATFORM=pcbios
@@ -283,7 +284,8 @@ touch /etc/udev/rules.d/80-net-name-slot.rules &
 touch /etc/udev/rules.d/80-net-setup-link.rules &
 wait
 time USE=-snmp emerge -uvN1 -j8 --keep-going y portage curl ntp gentoolkit cpuid2cpuflags || bash
-sntp $NTPSERVER
+touch /var/db/ntp-kod
+sntp -S $NTPSERVER
 #snmp support in current apcupsd is buggy
 grep -q sys-power/apcupsd /etc/portage/package.use/* || echo sys-power/apcupsd -snmp >> /etc/portage/package.use/apcupsd
 # apcupsd requires wall which is included in util-linux iif tty-helpers is set
@@ -510,7 +512,7 @@ newaliases
 
 # TODO detect if username should be included or not
 #sed -i 's/\troot\t/\t/' /etc/crontab
-echo -e "*/30  *  * * *\troot\tsntp $NTPSERVER > /dev/null" >> /etc/crontab
+echo -e "*/30  *  * * *\troot\tsntp -S $NTPSERVER > /dev/null" >> /etc/crontab
 # some variants of cron needs to have default cron installed
 #crontab /etc/crontab
 
