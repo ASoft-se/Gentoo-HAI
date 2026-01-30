@@ -251,12 +251,7 @@ cat > chrootstart.sh << EOF
 #!/bin/bash
 env-update
 source /etc/profile
-# do some dance around to be able to set password
-cp /etc/pam.d/system-auth system-auth.bak
-sed -i 's/^password/#password/' /etc/pam.d/system-auth
-echo 'password required pam_unix.so' >> /etc/pam.d/system-auth
-echo "root:${SET_PASS}" | chpasswd
-mv system-auth.bak /etc/pam.d/system-auth
+echo "root:${SET_PASS}" | chpasswd -c BCRYPT
 set -x
 mount /var/tmp
 

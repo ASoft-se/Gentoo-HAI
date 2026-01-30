@@ -7,10 +7,7 @@ then
   hostname gtestinst
   #IF NOT SET_PASS is set then the password will be "password"
   SET_PASS=${SET_PASS:-password}
-  # do some dance around to be able to set password
-  sed -i 's/^password/#password/' /etc/pam.d/system-auth
-  echo "password required pam_unix.so" >> /etc/pam.d/system-auth
-  echo "root:${SET_PASS}" | chpasswd
+  echo "root:${SET_PASS}" | chpasswd -c BCRYPT
 
   (ps aux | grep -q [d]hcp) || (ip link set eth0 up && sleep 2 && dhcpcd)
   /etc/init.d/sshd start &
