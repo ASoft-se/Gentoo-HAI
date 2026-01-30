@@ -291,6 +291,7 @@ grep -q sys-power/apcupsd /etc/portage/package.use/* || echo sys-power/apcupsd -
 # apcupsd requires wall which is included in util-linux iif tty-helpers is set
 grep -q sys-apps/util-linux /etc/portage/package.use/* || echo sys-apps/util-linux tty-helpers >> /etc/portage/package.use/apcupsd
 grep -q net-firewall/nftables /etc/portage/package.use/* || echo net-firewall/nftables xtables >> /etc/portage/package.use/nftables
+grep -q sys-boot/grub /etc/portage/package.use/* || echo sys-boot/grub -branding -themes >> /etc/portage/package.use/grub
 [[ ! -z "${NVMETOOLS:=}" ]] && (grep -q nvme /etc/portage/package.accept_keywords/* || echo ${NVMETOOLS} > /etc/portage/package.accept_keywords/nvme) &
 
 #add new CPU_FLAGS_X86
