@@ -25,6 +25,6 @@ Run `sh gentoocd_unpack.sh` (unfortunatly requests root) to unpack iso and creat
 It adds script to cd start that runs the install automatically.
 
 ### To make testing simple
-Give `sh gentoo_cdupdate.sh auto` a try if you want to test things out in a vm.
+Give `sh gentoo_cdupdate.sh auto useefi usenvme` a try if you want to test things out in a vm.
 It will use `test_w_qemu.sh` to start qemu, Disk image is auto created if it does not already exist.
 When testing disk images will be recrated, so copy them to a safe place if you want to keep them.
