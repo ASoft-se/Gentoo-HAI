@@ -54,7 +54,7 @@ if [[ $EUID -ne 0 ]]; then
 fi
 # files that contains kernelcmdlines that should be patched
 bootmenufiles="boot/grub/grub.cfg"
-echo emerge -uv1 cdrtools squashfs-tools
+echo emerge -uv1 cdrtools squashfs-tools dev-libs/libisoburn mtools
 set -x
 # unmount in case we got something left over since before
 [ -d gentoo_boot_cd ] && umount gentoo_boot_cd
