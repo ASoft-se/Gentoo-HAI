@@ -72,7 +72,7 @@ rm image.squashfs
 # mv squashfs-root ~/squashroot
 
 echo make changes...
-# use net.ifnames=0 instead
+# net.ifnames=0 is set, but ...
 # Try to get rid of the PredictableNetworkInterfaceNames unpredicatability With it we never know what the nics are called.
 mkdir -p squashfs-root/lib/udev/rules.d
 echo > squashfs-root/lib/udev/rules.d/80-net-name-slot.rules
@@ -97,14 +97,12 @@ pushd ../cpiofiles
 popd
 fi
 
-# remove do keymap and
-# default to swedish keyboard and add autoinstall TODO make it settable
-sed -i "s/ dokeymap/ keymap=${KEYMAP} autoinstall/" $bootmenufiles
+# change to defined keymap and add autoinstall
+sed -i "s/ dokeymap/ net.ifnames=0 keymap=${KEYMAP}  autoinstall/" $bootmenufiles
 
 if [ "$AUTO" == "YES" ]; then
   echo running with auto - wont stop
   [[ "$SETUPDONEHALT" == "YES" ]] && sed -i 's/ autoinstall$/ autoinstall setupdonehalt/' $bootmenufiles
-# TODO have an option for if using qemu serial instead of vga
   sed -i 's/ autoinstall/ autoinstall console=tty0 console=ttyS0,115200/' $bootmenufiles
   # use console for -nographics, sga and curses
   sed -i 's/vga=791//' $bootmenufiles
