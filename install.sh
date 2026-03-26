@@ -268,14 +268,13 @@ ln -snf /proc/self/mounts /etc/mtab
 [ -d /etc/portage/package.use ] || mkdir -p /etc/portage/package.use
 [ -d /etc/portage/package.mask ] || mkdir -p /etc/portage/package.mask
 
+mkdir -p /etc/portage/package.accept_keywords
+mkdir -p /etc/portage/package.use
 grep -q gentoo-sources /etc/portage/package.accept_keywords/* || echo sys-kernel/gentoo-sources > /etc/portage/package.accept_keywords/kernel &
 grep -q net-dns/bind /etc/portage/package.use/* || echo net-dns/bind dlz idn caps threads >> /etc/portage/package.use/bind &
-# The old udev rules are removed and now replaced with the PredictableNetworkInterfaceNames madness instead, and no use flags any more.
-#   Will have to revert to the old way of removing the files on boot/shutdown, and just hope they don't change the naming.
-#   Looks like udev is just getting worse and worse, unfortunatly eudev is no longer available?
-# touch to disable the unpredictable "PredictableNetworkInterfaceNames"
+echo touch to disable the unpredictable "PredictableNetworkInterfaceNames"
+mkdir -p /etc/udev/rules.d/
 touch /etc/udev/rules.d/80-net-name-slot.rules &
-# they made it unpredictable and changed the name, so lets be future prof
 touch /etc/udev/rules.d/80-net-setup-link.rules &
 wait
 time USE=-snmp emerge -uvN1 -j8 --keep-going y portage curl ntp gentoolkit cpuid2cpuflags || bash
@@ -453,7 +452,7 @@ grub-install --target=x86_64-efi --efi-directory=/boot/efi ${IDEV}
 grub-install --target=x86_64-efi --efi-directory=/boot/efi --removable ${IDEV}
 grub-install --target=i386-pc ${IDEV}
 sed -i 's/^#GRUB_DISABLE_LINUX_UUID=[a-z]*/GRUB_DISABLE_LINUX_UUID=true/' /etc/default/grub
-sed -i 's/^#GRUB_CMDLINE_LINUX_DEFAULT=""/GRUB_CMDLINE_LINUX_DEFAULT="rootfstype=ext4 panic=30 vga=791"/' /etc/default/grub
+sed -i 's/^#GRUB_CMDLINE_LINUX_DEFAULT=""/GRUB_CMDLINE_LINUX_DEFAULT="rootfstype=ext4 net.ifnames=0 panic=30 vga=791"/' /etc/default/grub
 sed -i 's/^#*GRUB_TIMEOUT=[0-9]+/GRUB_TIMEOUT=3/' /etc/default/grub
 echo 'GRUB_LINUX_KERNEL_GLOBS="/boot/vmlinuz /boot/vmlinuz.old"' >> /etc/default/grub
 grep -q console= /proc/cmdline && sed -i 's/ vga=791/ console=tty0 console=ttyS0,115200/' /etc/default/grub
@@ -497,8 +496,8 @@ rc-update add sshd default
 # Start creating fix script
 echo # Remove udev rules that make network interface names compleatly unpredictable and unmanagable. > /etc/local.d/remove.net.rules.start
 echo setterm -blank 0 >> /etc/local.d/remove.net.rules.start
-echo rm -rf /lib/udev/rules.d/80-net-name-slot.rules >> /etc/local.d/remove.net.rules.start
-
+echo rm -rf /usr/lib/udev/rules.d/80-net-name-slot.rules >> /etc/local.d/remove.net.rules.start
+echo rm -rf /usr/lib/udev/rules.d/80-net-setup-link.rules >> /etc/local.d/remove.net.rules.start
 # Make it executable, and run also on shutdown
 chmod a+x /etc/local.d/remove.net.rules.start
 ln -fs /etc/local.d/remove.net.rules.start /etc/local.d/remove.net.rules.stop
