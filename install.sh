@@ -519,6 +519,36 @@ sed -i "/^CONFIG_NR_CPUS=.*$/d" .config
 
 # v86d is dead so remove its initramfs
 sed -i 's#/usr/share/v86d/initramfs##' .config
+
+# Add missing PCI config options
+SEARCH_PATHS="/usr/src/linux/drivers/ /usr/src/linux/arch/x86/"
+for drv in \$(lspci -k | grep -E "Kernel (driver in use|modules):" | sed 's/.*: //' | tr '_,[:upper:]' '-\n[:lower:]' | sort -u); do
+    SYMBOL=\$(find /usr/src/linux/ -name "Makefile" -exec grep "[[:space:]]+=[[:space:]]*\${drv/-/.}\.o" {} \; | sed -n 's/.*\(CONFIG_[A-Z0-9_]*\).*/\1/p')
+
+    # Search for the DRV_NAME string in .c files
+    if [ -z "\$SYMBOL" ]; then
+        SRC_FILE=\$(grep -rlE "(\.name[[:space:]]*=[[:space:]]*\"|#define DRV_NAME[[:space:]]*\"|MODULE_ALIAS.*)\${drv/-/.}\"" \$SEARCH_PATHS | head -n 1)
+        if [ -n "\$SRC_FILE" ]; then
+            OBJ_NAME=\$(basename "\$SRC_FILE" .c).o
+            DIR_PATH=\$(dirname "\$SRC_FILE")
+            SYMBOL=\$(grep -E "obj-\\\\$\(CONFIG_[A-Z0-9_]+\)[[:space:]]*[:+]=.*[[:space:]]\${OBJ_NAME}" "\$DIR_PATH/Makefile" | sed -n 's/.*\(CONFIG_[A-Z0-9_]*\).*/\1/p')
+
+            if [ -z "\$SYMBOL" ]; then
+                VAR_NAME=\$(grep -E "[:+]=.*[[:space:]]\${OBJ_NAME}" "\$DIR_PATH/Makefile" | cut -d'=' -f1 | tr -d ' \t+:'| sed -E 's/-(y|m|objs)\$//')
+                [ -n "\$VAR_NAME" ] && SYMBOL=\$(grep -E "obj-\\\\$\(CONFIG_[A-Z0-9_]+\)[[:space:]]*[:+]=.*[[:space:]]\${VAR_NAME}.o" "\$DIR_PATH/Makefile" | sed -n 's/.*\(CONFIG_[A-Z0-9_]*\).*/\1/p')
+            fi
+        fi
+    fi
+
+    if [ -n "\$SYMBOL" ]; then
+        ASSIGN=y
+        [[ "\$SYMBOL" =~ "USB" ]] && ASSIGN=m
+        grep -q "^\${SYMBOL}=[ym]" .config || echo "\${SYMBOL}=\${ASSIGN}" | tee -a .config
+    else
+        echo "Searching for \$drv not found"
+    fi
+done
+
 echo -e "x\ny\n" | make menuconfig > /dev/null
 time make -s -j$(($(nproc)*2)) bzImage modules && make modules_install install || bash
 ls -lh /boot
