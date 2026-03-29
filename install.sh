@@ -315,7 +315,7 @@ etc-update --automode -5
 [ -f /etc/portage/package.mask/gentoo.conf ] || cp /usr/share/portage/config/repos.conf /etc/portage/repos.conf/gentoo.conf
 
 wait
-time emerge -uv -j8 installkernel grub dosfstools gentoo-sources pciutils usbutils ntp iproute2 sys-apps/memtest86+ ${NVMETOOLS} || bash
+time emerge -uv -j8 app-arch/lz4 installkernel grub dosfstools gentoo-sources pciutils usbutils ntp iproute2 sys-apps/memtest86+ ${NVMETOOLS} || bash
 mkdir /tftproot
 lspci
 
@@ -333,6 +333,8 @@ CONFIG_SQUASHFS_XZ=y
 
 # Modern USB
 CONFIG_USB_XHCI_HCD=y
+CONFIG_USB_XHCI_SIDEBAND=y
+CONFIG_USB_OHCI_HCD=m
 CONFIG_USBIP_CORE=m
 CONFIG_USBIP_VHCI_HCD=m
 CONFIG_USBIP_HOST=m
@@ -349,6 +351,7 @@ CONFIG_INPUT_MOUSEDEV=m
 CONFIG_MOUSE_PS2=m
 CONFIG_MOUSE_SYNAPTICS_I2C=m
 CONFIG_MOUSE_SYNAPTICS_USB=m
+CONFIG_HID_RMI=m
 CONFIG_RMI4_CORE=m
 CONFIG_RMI4_I2C=m
 CONFIG_RMI4_SPI=m
@@ -357,7 +360,6 @@ CONFIG_RMI4_F03=y
 CONFIG_RMI4_F03_SERIO=m
 CONFIG_RMI4_2D_SENSOR=y
 CONFIG_RMI4_F11=y
-CONFIG_RMI4_F12=y
 CONFIG_RMI4_F12=y
 CONFIG_RMI4_F1A=y
 CONFIG_RMI4_F21=y
@@ -381,13 +383,17 @@ CONFIG_VMWARE_PVSCSI=y
 CONFIG_SCSI_BUSLOGIC=y
 CONFIG_SCSI_SYM53C8XX_2=y
 CONFIG_I2C_PIIX4=y
+CONFIG_SCSI_DH=y
+CONFIG_FSCACHE=y
 #vmware ensure network
 CONFIG_VMXNET3=m
 CONFIG_NET_VENDOR_AMD=y
 CONFIG_PCNET32=m
 CONFIG_NET_VENDOR_INTEL=y
-CONFIG_E1000=y
+CONFIG_E1000=m
 CONFIG_E1000E=y
+CONFIG_IGB=m
+CONFIG_IGBVF=m
 CONFIG_NLMON=y
 CONFIG_R8169=m
 #KVM/XEN Virtio
@@ -407,6 +413,29 @@ CONFIG_VM_EVENT_COUNTERS=y
 #qemu kvm_stat need
 CONFIG_DEBUG_FS=y
 
+CONFIG_HYPERVISOR_GUEST=y
+CONFIG_PARAVIRT=y
+CONFIG_PARAVIRT_SPINLOCKS=y
+CONFIG_KVM_GUEST=y
+CONFIG_PARAVIRT_TIME_ACCOUNTING=y
+CONFIG_VIRTIO_RTC=y
+
+# optimize kernel compression for speed
+CONFIG_X86_NATIVE_CPU=y
+# unset GZIP
+CONFIG_KERNEL_GZIP=n
+CONFIG_KERNEL_LZ4=y
+CONFIG_DMI_SYSFS=m
+CONFIG_SOFT_WATCHDOG=m
+CONFIG_IT87_WDT=m
+CONFIG_INTEL_OC_WATCHDOG=m
+CONFIG_INTEL_MEI_WDT=m
+CONFIG_IPMI_SI=m
+CONFIG_IPMI_SSIF=m
+CONFIG_IPMI_WATCHDOG=m
+CONFIG_IPMI_POWEROFF=m
+CONFIG_TCG_TPM=m
+
 # use old vesa, vga= mode
 CONFIG_FB_VESA=y
 # and make uvesafb a module instead
@@ -415,6 +444,13 @@ CONFIG_FB_UVESA=m
 # make sure the kernel supports EFI boot
 CONFIG_EFI_STUB=y
 CONFIG_FB_EFI=y
+CONFIG_SYSFB_SIMPLEFB=y
+CONFIG_DRM=m
+CONFIG_DRM_SIMPLEDRM=m
+CONFIG_FB_SIMPLE=y
+CONFIG_FRAMEBUFFER_CONSOLE_DEFERRED_TAKEOVER=y
+CONFIG_EFI_BOOTLOADER_CONTROL=m
+CONFIG_EFI_RCI2_TABLE=y
 
 # New Netfilter (to get iptables nat working)
 CONFIG_NF_TABLES=m
@@ -436,6 +472,7 @@ CONFIG_IP_NF_TARGET_MASQUERADE=m
 CONFIG_IP_NF_TARGET_REDIRECT=m
 CONFIG_NF_TABLES_IPV6=y
 CONFIG_NFT_CHAIN_ROUTE_IPV6=m
+CONFIG_IPV6_SIT=m
 
 CONFIG_IPV6_OPTIMISTIC_DAD=y
 
@@ -482,9 +519,7 @@ sed -i "/^CONFIG_NR_CPUS=.*$/d" .config
 
 # v86d is dead so remove its initramfs
 sed -i 's#/usr/share/v86d/initramfs##' .config
-echo "x
-y
-" | make menuconfig > /dev/null
+echo -e "x\ny\n" | make menuconfig > /dev/null
 time make -s -j$(($(nproc)*2)) bzImage modules && make modules_install install || bash
 ls -lh /boot
 cd /boot
