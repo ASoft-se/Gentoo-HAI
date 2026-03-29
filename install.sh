@@ -54,6 +54,11 @@ find /sys/devices/ -name "idVendor" -exec grep -l "051d" {} + | while read f; do
     APCUPSDTOOLS=apcupsd
 done
 
+BATTERYDEV=$(grep -l "Battery" /sys/class/power_supply/*/type)
+if [[ ! -z "${BATTERYDEV:=}" ]]; then
+    BATTERYTOOLS=sys-power/acpi
+fi
+
 #Create bios boot, 128MB boot, 128MB EFI, 4GB Swap and the rest root on ${IDEV}
 echo "gpt
 print
@@ -293,6 +298,7 @@ if [[ ! -z "${APCUPSDTOOLS:=}" ]]; then
     grep -q sys-apps/util-linux /etc/portage/package.use/* || echo sys-apps/util-linux tty-helpers >> /etc/portage/package.use/apcupsd
 fi
 grep -q net-firewall/nftables /etc/portage/package.use/* || echo net-firewall/nftables xtables >> /etc/portage/package.use/nftables
+grep -q net-analyzer/net-snmp /etc/portage/package.use/* || echo net-analyzer/net-snmp lm-sensors >> /etc/portage/package.use/net-snmp
 grep -q sys-boot/grub /etc/portage/package.use/* || echo sys-boot/grub -branding -themes >> /etc/portage/package.use/grub
 [[ ! -z "${NVMETOOLS:=}" ]] && (grep -q nvme /etc/portage/package.accept_keywords/* || echo ${NVMETOOLS} > /etc/portage/package.accept_keywords/nvme) &
 
@@ -498,7 +504,7 @@ ls -lh /boot; find /boot/efi; efibootmgr
 cd /etc
 ln -fs /usr/share/zoneinfo/$TIMEZONE localtime
 emerge -uv -j8 --keep-going y iptables nftables net-snmp dev-vcs/git ${APCUPSDTOOLS} iotop iftop ddrescue sys-apps/pv tcpdump nmap netkit-telnetd dmidecode hdparm \
- mlocate postfix bind dhcp sys-apps/watchdog net-ftp/tftp-hpa dhcpcd app-misc/mc smartmontools syslog-ng virtual/cron logrotate lsof || bash
+ mlocate postfix bind dhcp sys-apps/watchdog net-ftp/tftp-hpa dhcpcd app-misc/mc smartmontools syslog-ng virtual/cron logrotate lsof ${BATTERYTOOLS} || bash
 #rerun make sure up2date
 time emerge -uvDN -j4 world --exclude gcc glibc || bash
 etc-update --automode -5
