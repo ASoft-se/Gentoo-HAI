@@ -470,6 +470,13 @@ CONFIG_EXT4_FS_SECURITY=y
 CONFIG_TMPFS_POSIX_ACL=y
 " >> .config
 
+DISK_COUNT=\$(readlink -f /sys/block/[sv]d* 2>/dev/null | grep -v "usb" | wc -l)
+if [ "\$DISK_COUNT" -le 1 ]; then
+    echo "Single disk detected. change MD/RAID to modules"
+    sed -i 's/CONFIG_BLK_DEV_MD=./CONFIG_BLK_DEV_MD=m/' .config
+    sed -i '/^CONFIG_MD_RAID/s/=./=m/' .config
+fi
+
 # Remove old low CPU core count
 sed -i "/^CONFIG_NR_CPUS=.*$/d" .config
 
