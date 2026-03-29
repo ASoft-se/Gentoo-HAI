@@ -504,7 +504,7 @@ ls -lh /boot; find /boot/efi; efibootmgr
 cd /etc
 ln -fs /usr/share/zoneinfo/$TIMEZONE localtime
 emerge -uv -j8 --keep-going y iptables nftables net-snmp dev-vcs/git ${APCUPSDTOOLS} iotop iftop ddrescue sys-apps/pv tcpdump nmap netkit-telnetd dmidecode hdparm \
- mlocate postfix bind dhcp sys-apps/watchdog net-ftp/tftp-hpa dhcpcd app-misc/mc smartmontools syslog-ng virtual/cron logrotate lsof ${BATTERYTOOLS} || bash
+ mlocate postfix bind dhcp sys-apps/watchdog net-ftp/tftp-hpa dhcpcd app-misc/mc smartmontools syslog-ng virtual/cron logrotate lsof ${BATTERYTOOLS:=} || bash
 #rerun make sure up2date
 time emerge -uvDN -j4 world --exclude gcc glibc || bash
 etc-update --automode -5
