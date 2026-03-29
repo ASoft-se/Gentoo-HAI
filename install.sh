@@ -48,6 +48,12 @@ pid_ntp=$!
 
 [ -d /sys/firmware/efi ] && PLATFORM=efi || PLATFORM=pcbios
 
+find /sys/devices/ -name "idVendor" -exec grep -l "051d" {} + | while read f; do
+    echo we have an APC device, probably UPS add apcupsd
+    cat "$(dirname "$f")/manufacturer" "$(dirname "$f")/product"
+    APCUPSDTOOLS=apcupsd
+done
+
 #Create bios boot, 128MB boot, 128MB EFI, 4GB Swap and the rest root on ${IDEV}
 echo "gpt
 print
@@ -280,10 +286,12 @@ wait
 time USE=-snmp emerge -uvN1 -j8 --keep-going y portage curl ntp gentoolkit cpuid2cpuflags || bash
 touch /var/db/ntp-kod
 sntp -S $NTPSERVER
-#snmp support in current apcupsd is buggy
-grep -q sys-power/apcupsd /etc/portage/package.use/* || echo sys-power/apcupsd -snmp >> /etc/portage/package.use/apcupsd
-# apcupsd requires wall which is included in util-linux iif tty-helpers is set
-grep -q sys-apps/util-linux /etc/portage/package.use/* || echo sys-apps/util-linux tty-helpers >> /etc/portage/package.use/apcupsd
+if [[ ! -z "${APCUPSDTOOLS:=}" ]]; then
+    #snmp support in current apcupsd is buggy
+    grep -q sys-power/apcupsd /etc/portage/package.use/* || echo sys-power/apcupsd -snmp >> /etc/portage/package.use/apcupsd
+    # apcupsd requires wall which is included in util-linux iif tty-helpers is set
+    grep -q sys-apps/util-linux /etc/portage/package.use/* || echo sys-apps/util-linux tty-helpers >> /etc/portage/package.use/apcupsd
+fi
 grep -q net-firewall/nftables /etc/portage/package.use/* || echo net-firewall/nftables xtables >> /etc/portage/package.use/nftables
 grep -q sys-boot/grub /etc/portage/package.use/* || echo sys-boot/grub -branding -themes >> /etc/portage/package.use/grub
 [[ ! -z "${NVMETOOLS:=}" ]] && (grep -q nvme /etc/portage/package.accept_keywords/* || echo ${NVMETOOLS} > /etc/portage/package.accept_keywords/nvme) &
@@ -489,7 +497,7 @@ ls -lh /boot; find /boot/efi; efibootmgr
 
 cd /etc
 ln -fs /usr/share/zoneinfo/$TIMEZONE localtime
-emerge -uv -j8 --keep-going y iptables nftables net-snmp dev-vcs/git apcupsd iotop iftop ddrescue sys-apps/pv tcpdump nmap netkit-telnetd dmidecode hdparm \
+emerge -uv -j8 --keep-going y iptables nftables net-snmp dev-vcs/git ${APCUPSDTOOLS} iotop iftop ddrescue sys-apps/pv tcpdump nmap netkit-telnetd dmidecode hdparm \
  mlocate postfix bind dhcp sys-apps/watchdog net-ftp/tftp-hpa dhcpcd app-misc/mc smartmontools syslog-ng virtual/cron logrotate lsof || bash
 #rerun make sure up2date
 time emerge -uvDN -j4 world --exclude gcc glibc || bash
@@ -555,7 +563,7 @@ eselect repository enable gentoo
 emerge --sync
 fi
 
-#todo if local ups... rc-update add apcupsd.powerfail shutdown
+[[ ! -z "${APCUPSDTOOLS:=}" ]] && rc-update add apcupsd default && rc-update add apcupsd.powerfail shutdown
 #todo configure snmp and add to startup
 
 #todo... if vmware emerge open-vm-tools?
