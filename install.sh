@@ -625,6 +625,7 @@ sed -i 's#^\#INTFTPD_PATH="/tftproot/"#INTFTPD_PATH="/tftproot/"#' /etc/conf.d/i
 rc-update add in.tftpd default
 sed -i 's/^#PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
 rc-update add sshd default
+rc-update delete netmount
 
 # Start creating fix script
 echo # Remove udev rules that make network interface names compleatly unpredictable and unmanagable. > /etc/local.d/remove.net.rules.start
