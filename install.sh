@@ -231,7 +231,7 @@ bridge_stp_state_br0=0
 dhcp_br0="nodns nontp nonis nosendhost"
 
 #config_br0="192.168.0.251/24"
-#routes_br0="default via 192.168.0.254"
+#routes_br0="default via 192.168.0.254 table default"
 
 config_eth0="null"
 rc_net_br0_need="net.eth0"
