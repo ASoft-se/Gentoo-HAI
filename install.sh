@@ -299,13 +299,13 @@ if [[ ! -z "${APCUPSDTOOLS:=}" ]]; then
 fi
 grep -q net-firewall/nftables /etc/portage/package.use/* || echo net-firewall/nftables xtables >> /etc/portage/package.use/nftables
 grep -q net-analyzer/net-snmp /etc/portage/package.use/* || echo net-analyzer/net-snmp lm-sensors >> /etc/portage/package.use/net-snmp
-grep -q sys-boot/grub /etc/portage/package.use/* || echo sys-boot/grub -branding -themes >> /etc/portage/package.use/grub
+grep -q sys-kernel/installkernel /etc/portage/package.use/* || echo sys-kernel/installkernel grub >> /etc/portage/package.use/grub
 [[ ! -z "${NVMETOOLS:=}" ]] && (grep -q nvme /etc/portage/package.accept_keywords/* || echo ${NVMETOOLS} > /etc/portage/package.accept_keywords/nvme) &
 
 #add new CPU_FLAGS_X86
 echo "*/* \$(cpuid2cpuflags)" > /etc/portage/package.use/00cpuflags
 # prefetch some packages
-emerge -fq pciutils grub gentoo-sources > /dev/null &
+emerge -fq pciutils gentoo-sources > /dev/null &
 
 #start out with being up2date
 #we expect that this can fail
@@ -315,7 +315,7 @@ etc-update --automode -5
 [ -f /etc/portage/package.mask/gentoo.conf ] || cp /usr/share/portage/config/repos.conf /etc/portage/repos.conf/gentoo.conf
 
 wait
-time emerge -uv -j8 app-arch/lz4 installkernel grub dosfstools gentoo-sources pciutils usbutils ntp iproute2 sys-apps/memtest86+ ${NVMETOOLS} || bash
+time emerge -uv -j8 app-arch/lz4 sys-kernel/installkernel dosfstools gentoo-sources pciutils usbutils ntp iproute2 sys-apps/memtest86+ ${NVMETOOLS} || bash
 mkdir /tftproot
 lspci
 
@@ -581,10 +581,23 @@ for drv in \$(lspci -k | grep -E "Kernel (driver in use|modules):" | sed 's/.*: 
 done
 
 echo -e "x\ny\n" | make menuconfig > /dev/null
+
+# Prepare grub config since grub-mkconfig runs as part of make install, will re-run after some further changes
+sed -i 's/^#GRUB_DISABLE_LINUX_UUID=[a-z]+/GRUB_DISABLE_LINUX_UUID=true/' /etc/default/grub
+sed -i 's/^#GRUB_CMDLINE_LINUX=""/GRUB_CMDLINE_LINUX="rootfstype=ext4 net.ifnames=0 panic=30 vga=791"/' /etc/default/grub
+sed -i 's/^#*GRUB_TIMEOUT=[0-9]+/GRUB_TIMEOUT=3/' /etc/default/grub
+# Drop graphics in grub, with below 2 changes load_video is never called, at least not in grub 2.14-r4
+sed -i 's/^#GRUB_TERMINAL=.*/GRUB_TERMINAL=console/' /etc/default/grub
+sed -i 's/^#GRUB_GFXPAYLOAD_LINUX=.*/GRUB_GFXPAYLOAD_LINUX=text/' /etc/default/grub
+echo "# replicate the old GRUB_LINUX_KERNEL_GLOBS" >> /etc/default/grub
+echo "sed -i 's|/boot/vmlinuz-\*|/boot/vmlinuz /boot/vmlinuz.old|' /etc/grub.d/10_linux" >> /etc/default/grub
+pushd /boot
+# create a dummy link
+ln -s vmlinuz-1.1 vmlinuz
+popd
 time make -s -j$(($(nproc)*2)) bzImage modules && make modules_install install || bash
+rm /boot/vmlinuz.old
 ls -lh /boot
-cd /boot
-ln -s vmlinuz-* vmlinuz && cd /usr/src/linux && make install
 
 mkdir -p /boot/efi/EFI/BOOT/
 curl https://boot.ipxe.org/ipxe.efi -o /boot/efi/EFI/BOOT/ipxex64.efi
@@ -595,16 +608,12 @@ chmod a+x /etc/grub.d/39_efitools
 grub-install --target=x86_64-efi --efi-directory=/boot/efi ${IDEV}
 grub-install --target=x86_64-efi --efi-directory=/boot/efi --removable ${IDEV}
 grub-install --target=i386-pc ${IDEV}
-sed -i 's/^#GRUB_DISABLE_LINUX_UUID=[a-z]*/GRUB_DISABLE_LINUX_UUID=true/' /etc/default/grub
-sed -i 's/^#GRUB_CMDLINE_LINUX_DEFAULT=""/GRUB_CMDLINE_LINUX_DEFAULT="rootfstype=ext4 net.ifnames=0 panic=30 vga=791"/' /etc/default/grub
-sed -i 's/^#*GRUB_TIMEOUT=[0-9]+/GRUB_TIMEOUT=3/' /etc/default/grub
-echo 'GRUB_LINUX_KERNEL_GLOBS="/boot/vmlinuz /boot/vmlinuz.old"' >> /etc/default/grub
-grep -q console= /proc/cmdline && sed -i 's/ vga=791/ console=tty0 console=ttyS0,115200/' /etc/default/grub
+grep -q console= /proc/cmdline && sed -i 's/ panic=30/ panic=30 console=tty0 console=ttyS0,115200/' /etc/default/grub
 grep -q console= /proc/cmdline && sed -i 's/^#GRUB_TERMINAL=.*/GRUB_TERMINAL="console serial"/' /etc/default/grub
 grep -q console= /proc/cmdline && echo 'GRUB_SERIAL_COMMAND="serial --speed=115200 --unit=0"' >> /etc/default/grub
 # enable in inittab
 grep -q console= /proc/cmdline && sed -i 's/^#s0:/s0:/' /etc/inittab
-grub-mkconfig -o /boot/grub/grub.cfg
+cd /usr/src/linux && make install
 ls -lh /boot; find /boot/efi; efibootmgr
 
 cd /etc
