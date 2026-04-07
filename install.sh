@@ -584,7 +584,8 @@ echo -e "x\ny\n" | make menuconfig > /dev/null
 
 # Prepare grub config since grub-mkconfig runs as part of make install, will re-run after some further changes
 sed -i 's/^#GRUB_DISABLE_LINUX_UUID=[a-z]+/GRUB_DISABLE_LINUX_UUID=true/' /etc/default/grub
-sed -i 's/^#GRUB_CMDLINE_LINUX=""/GRUB_CMDLINE_LINUX="rootfstype=ext4 net.ifnames=0 panic=30 vga=791"/' /etc/default/grub
+sed -i 's/^#GRUB_CMDLINE_LINUX=""/GRUB_CMDLINE_LINUX="rootfstype=ext4 net.ifnames=0 panic=30"/' /etc/default/grub
+[ ! -d /sys/firmware/efi ] && sed -i 's/panic=30/panic=30 vga=791/' /etc/default/grub
 sed -i 's/^#*GRUB_TIMEOUT=[0-9]+/GRUB_TIMEOUT=3/' /etc/default/grub
 # Drop graphics in grub, with below 2 changes load_video is never called, at least not in grub 2.14-r4
 sed -i 's/^#GRUB_TERMINAL=.*/GRUB_TERMINAL=console/' /etc/default/grub
