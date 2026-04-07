@@ -256,6 +256,7 @@ rc_before_vpnUA="openvpn.vpnua"
 config_vpnUA="10.1.100.101/24"
 routes_vpnUA="10.100.0.0/16 via 10.1.100.1"
 EOF
+grep -q autoinstall /proc/cmdline || nano etc/conf.d/net
 
 #generate chroot script
 cat > chrootstart.sh << EOF
@@ -633,7 +634,6 @@ sed -i 's/^# DHCPD_CHROOT=/DHCPD_CHROOT=/' /etc/conf.d/dhcpd
 dispatch-conf
 
 #todo fix with sed ... but virtual machine dont save clock ;)
-#mcedit /etc/conf.d/hwclock
 #/etc/init.d/hwclock save
 sed -i 's/^c1:12345:respawn:\/sbin\/agetty .* tty1 linux\$/& --noclear/' /etc/inittab || bash
 cd /etc/init.d
@@ -691,10 +691,7 @@ fi
 
 #todo... if vmware emerge open-vm-tools?
 
-#mcedit /etc/rc.conf
-grep -q autoinstall /proc/cmdline || mcedit /etc/conf.d/net
 rc-update add net.br0 default
-#sleep 5 || bash
 
 umount /var/tmp
 EOF
