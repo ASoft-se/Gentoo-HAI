@@ -600,8 +600,8 @@ rm /boot/vmlinuz.old
 ls -lh /boot
 
 mkdir -p /boot/efi/EFI/BOOT/
-curl https://boot.ipxe.org/ipxe.efi -o /boot/efi/EFI/BOOT/ipxex64.efi
-curl https://boot.ipxe.org/Shell.efi -o /boot/efi/EFI/BOOT/shellx64.efi
+curl https://boot.ipxe.org/x86_64-efi/ipxe-legacy.efi -o /boot/efi/EFI/BOOT/ipxex64.efi
+curl https://raw.githubusercontent.com/tianocore/edk2-archive/refs/heads/master/ShellBinPkg/UefiShell/X64/Shell.efi -o /boot/efi/EFI/BOOT/shellx64.efi
 [ -f /etc/grub.d/39_efitools ] || curl -L ${GHBASEURL}/grub.d/39_efitools -o /etc/grub.d/39_efitools
 sha512sum -c <<<"cae63738889e626906270c6ad853970340d83044363680db97a70fdc8b6ec7960ba9ea7553afaf79bd8b64a61800ecf782742509e9e84d1c60b1e1e6de9d5346  /etc/grub.d/39_efitools" || bash
 chmod a+x /etc/grub.d/39_efitools
