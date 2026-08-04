@@ -49,7 +49,7 @@ POSITIONAL=${POSITIONAL[@]}
 # check for root since we are using tmpfs and need root to not risk getting incorrect permissions on the new squashfs
 if [[ $EUID -ne 0 ]]; then
   echo "This script must be run as root (to mount tmpfs), please provide password to su" 1>&2
-  su -c "sh $0 ${ALLPOSITIONAL}" && [ "$AUTO" == "YES" ] && (rm kvm_lxgentootest.qcow2; sh test_w_qemu.sh -cdrom install-amd64-mod.iso ${POSITIONAL})
+  su -c "sh $0 ${ALLPOSITIONAL}" && [ "$AUTO" == "YES" ] && (rm kvm_lxgentootest.qcow2; time sh test_w_qemu.sh -cdrom install-amd64-mod.iso ${POSITIONAL})
   exit
 fi
 # files that contains kernelcmdlines that should be patched

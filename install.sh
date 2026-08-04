@@ -8,17 +8,30 @@
 # root password will be set to SET_PASS parameter or "password" if not given
 # ssh server will be started on the live medium directly after the password have been set.
 #
-# Hostname will be set to the same as the host
+# Hostname will be set to the same as the host if not overriden by HAIHOSTNAME
 # Keyboard layout, timezone and ntp server see settings below
 #
 
 # Make sure our root mountpoint exists
 mkdir -p /mnt/gentoo
 
+# Parse /proc/cmdline
+for arg in $(cat /proc/cmdline); do
+    case "$arg" in
+        TIMEZONE=*|NTPSERVER=*|KEYMAP=*|ROOTEMAIL=*|IDEV=*|SET_PASS=*|HAIHOSTNAME=*)
+            key="${arg%%=*}"
+            [[ -z "${!key}" ]] && eval "$key=\"\${arg#*=}\""
+            ;;
+    esac
+done
+
 TIMEZONE=${TIMEZONE:-Europe/Stockholm}
 NTPSERVER=${NTPSERVER:-ntp.se}
 KEYMAP=${KEYMAP:-sv-latin1}
 ROOTEMAIL=${ROOTEMAIL:-root@asoft.se}
+#IF NOT SET_PASS is set then the password will be "password"
+SET_PASS=${SET_PASS:-password}
+HAIHOSTNAME=${HAIHOSTNAME:-$(hostname)}
 
 if [ -b /dev/nvme0n1 ]; then
   IDEV=${IDEV:-/dev/nvme0n1}
@@ -32,12 +45,10 @@ IDEVP=${IDEV}
 # if disk name ends with number, then partition is sepparated with p
 echo ${IDEV} | grep -q -e "[0-9]$" && IDEVP=${IDEV}p
 
-if [ "$(hostname)" == "livecd" ]; then
+if [ "$HAIHOSTNAME" == "livecd" ]; then
   echo Change hostname before you continue since it will be used for the created host.
   exit 1
 fi
-#IF NOT SET_PASS is set then the password will be "password"
-SET_PASS=${SET_PASS:-password}
 
 set -x -u
 GHBASEURL="https://raw.githubusercontent.com/ASoft-se/Gentoo-HAI/refs/heads/master"
@@ -183,7 +194,7 @@ cp /etc/resolv.conf etc
 # make sure we are done with root unpack...
 
 echo "# Set to the hostname of this machine
-hostname=\"$(hostname)\"
+hostname=\"$HAIHOSTNAME\"
 " > etc/conf.d/hostname
 #change fstab to match disk layout
 echo -e "
