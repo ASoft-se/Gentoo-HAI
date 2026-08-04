@@ -33,6 +33,7 @@ ROOTEMAIL=${ROOTEMAIL:-root@asoft.se}
 SET_PASS=${SET_PASS:-password}
 HAIHOSTNAME=${HAIHOSTNAME:-$(hostname)}
 
+NVMETOOLS=
 if [ -b /dev/nvme0n1 ]; then
   IDEV=${IDEV:-/dev/nvme0n1}
   NVMETOOLS=sys-apps/nvme-cli
@@ -59,14 +60,16 @@ pid_ntp=$!
 
 [ -d /sys/firmware/efi ] && PLATFORM=efi || PLATFORM=pcbios
 
+APCUPSDTOOLS=
 find /sys/devices/ -name "idVendor" -exec grep -l "051d" {} + | while read f; do
     echo we have an APC device, probably UPS add apcupsd
     cat "$(dirname "$f")/manufacturer" "$(dirname "$f")/product"
     APCUPSDTOOLS=apcupsd
 done
 
+BATTERYTOOLS=
 BATTERYDEV=$(grep -l "Battery" /sys/class/power_supply/*/type)
-if [[ ! -z "${BATTERYDEV:=}" ]]; then
+if [[ -n "${BATTERYDEV}" ]]; then
     BATTERYTOOLS=sys-power/acpi
 fi
 
@@ -304,7 +307,7 @@ wait
 time USE=-snmp emerge -uvN1 -j8 --keep-going y portage curl ntp gentoolkit cpuid2cpuflags || bash
 touch /var/db/ntp-kod
 sntp -S $NTPSERVER
-if [[ ! -z "${APCUPSDTOOLS:=}" ]]; then
+if [[ -n "${APCUPSDTOOLS}" ]]; then
     #snmp support in current apcupsd is buggy
     grep -q sys-power/apcupsd /etc/portage/package.use/* || echo sys-power/apcupsd -snmp >> /etc/portage/package.use/apcupsd
     # apcupsd requires wall which is included in util-linux iif tty-helpers is set
@@ -313,7 +316,7 @@ fi
 grep -q net-firewall/nftables /etc/portage/package.use/* || echo net-firewall/nftables xtables >> /etc/portage/package.use/nftables
 grep -q net-analyzer/net-snmp /etc/portage/package.use/* || echo net-analyzer/net-snmp lm-sensors >> /etc/portage/package.use/net-snmp
 grep -q sys-kernel/installkernel /etc/portage/package.use/* || echo sys-kernel/installkernel grub >> /etc/portage/package.use/grub
-[[ ! -z "${NVMETOOLS:=}" ]] && (grep -q nvme /etc/portage/package.accept_keywords/* || echo ${NVMETOOLS} > /etc/portage/package.accept_keywords/nvme) &
+[[ -n "${NVMETOOLS}" ]] && (grep -q nvme /etc/portage/package.accept_keywords/* || echo ${NVMETOOLS} > /etc/portage/package.accept_keywords/nvme) &
 
 #add new CPU_FLAGS_X86
 echo "*/* \$(cpuid2cpuflags)" > /etc/portage/package.use/00cpuflags
@@ -698,7 +701,7 @@ eselect repository enable gentoo
 emerge --sync
 fi
 
-[[ ! -z "${APCUPSDTOOLS:=}" ]] && rc-update add apcupsd default && rc-update add apcupsd.powerfail shutdown
+[[ -n "${APCUPSDTOOLS}" ]] && rc-update add apcupsd default && rc-update add apcupsd.powerfail shutdown
 #todo configure snmp and add to startup
 
 #todo... if vmware emerge open-vm-tools?
