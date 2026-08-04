@@ -162,7 +162,8 @@ cd /mnt/gentoo || exit 1
 #cleanup in case of previous try...
 [ -f "*.tar.{bz2,xz,sqfs}" ] && rm *.tar.{bz2,xz,sqfs}
 [ -f portagehelper.sh ] || curl -L --remote-name-all ${GHBASEURL}/portagehelper.sh -O
-sha512sum -c <<<"fc4727ec899d46b53637917bf6fe69d51645d28d1fd2cd10bd989aa0787af8fc236bcc517d83e0ee575a15f70a641c597000cf53fc25039e3caec9690848c152  portagehelper.sh" || bash
+sha512sum -c <<<"885be77e33926746ea070550110f30800e2b0a832dec84ac22fa41ef1a97ff8295ff64b091a5be6161cd7a5bc9653128105565237ee8bddbae40a7fec0a6eb1a  portagehelper.sh" || bash
+vardb=/mnt/gentoo/var/db
 . ./portagehelper.sh || bash
 DISTBASE=${DISTMIRROR}/releases/amd64/autobuilds/current-stage3-amd64-openrc/
 ensure_key_and_snap_source || bash

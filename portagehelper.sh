@@ -8,7 +8,7 @@
 set -u
 DISTMIRROR=${DISTMIRROR:-https://distfiles.gentoo.org}
 TRUSTKEY=${TRUSTKEY:-ABD00913019D6354BA1D9A132839FE0D796198B1}
-vardb=${vardb:-$PWD/var/db}
+vardb=${vardb:-/var/db}
 pathrepo=${pathrepo:-$vardb/repos/gentoo}
 pathsnapshots=${pathsnapshots:-$vardb/snapshots}
 cursqfs=gentoo-current.xz.sqfs
@@ -26,6 +26,8 @@ ensure_key_and_snap_source() {
     --trusted-key $TRUSTKEY \
     --import service-keys.gpg && rm service-keys.gpg
   #gpg --locate-key infrastructure@gentoo.org
+  #https://github.com/ASoft-se/Gentoo-HAI/issues/107
+  getuto
 
   [ -z "$shaurl" ] && return 0
   # Validate sha512sum
