@@ -220,7 +220,7 @@ MAKECONF=etc/portage/make.conf
 [ ! -f $MAKECONF ] && [ -f etc/make.conf ] && MAKECONF=etc/make.conf
 echo $MAKECONF
 
-# CPU_FLAGS_X86 should be handled but must be done inside chroot, see below
+# CPU_FLAGS_X86 handled thru /etc/portage/package.use/00cpuflags inside chroot, see below
 
 #Updating Makefile
 echo >> $MAKECONF
@@ -304,7 +304,7 @@ mkdir -p /etc/udev/rules.d/
 touch /etc/udev/rules.d/80-net-name-slot.rules &
 touch /etc/udev/rules.d/80-net-setup-link.rules &
 wait
-time USE=-snmp emerge -uvN1 -j8 --keep-going y portage curl ntp gentoolkit cpuid2cpuflags || bash
+time USE=-snmp emerge -uvN1 -j8 --keep-going y portage curl ntp gentoolkit cpuid2cpuflags pv || bash
 touch /var/db/ntp-kod
 sntp -S $NTPSERVER
 if [[ -n "${APCUPSDTOOLS}" ]]; then
@@ -321,22 +321,27 @@ grep -q sys-kernel/installkernel /etc/portage/package.use/* || echo sys-kernel/i
 #add new CPU_FLAGS_X86
 echo "*/* \$(cpuid2cpuflags)" > /etc/portage/package.use/00cpuflags
 # prefetch some packages
-emerge -fq pciutils gentoo-sources > /dev/null &
+emerge -fq pciutils gentoo-sources grub > /dev/null &
 
 #start out with being up2date
 #we expect that this can fail
-time emerge -uvDN -j4 --keep-going y world --exclude gcc glibc
+time emerge -uvDN -j4 --keep-going y world --exclude gcc glibc --binpkg-respect-use=y
 etc-update --automode -5
 
 [ -f /etc/portage/package.mask/gentoo.conf ] || cp /usr/share/portage/config/repos.conf /etc/portage/repos.conf/gentoo.conf
 
 wait
-time emerge -uv -j8 app-arch/lz4 sys-kernel/installkernel dosfstools gentoo-sources pciutils usbutils ntp iproute2 sys-apps/memtest86+ ${NVMETOOLS} || bash
+time emerge -uv -j8 app-arch/lz4 sys-kernel/installkernel dosfstools gentoo-sources pciutils usbutils iproute2 sys-apps/memtest86+ ${NVMETOOLS} || bash
 mkdir /tftproot
 lspci
 
 eselect kernel set 1
 cd /usr/src/linux
+EOF
+declare -p IDEV >> chrootstart.sh
+declare -p GHBASEURL >> chrootstart.sh
+declare -p NVMEKERNEL >> chrootstart.sh
+get_kernel_config() {
 #getting a base kernel config
 wget ${GHBASEURL}/krn330.conf -O .config
 echo "
@@ -554,8 +559,8 @@ CONFIG_EXT4_FS_SECURITY=y
 CONFIG_TMPFS_POSIX_ACL=y
 " >> .config
 
-DISK_COUNT=\$(readlink -f /sys/block/[sv]d* 2>/dev/null | grep -v "usb" | wc -l)
-if [ "\$DISK_COUNT" -le 1 ]; then
+DISK_COUNT=$(readlink -f /sys/block/[sv]d* 2>/dev/null | grep -v "usb" | wc -l)
+if [ "$DISK_COUNT" -le 1 ]; then
     echo "Single disk detected. change MD/RAID to modules"
     sed -i 's/CONFIG_BLK_DEV_MD=./CONFIG_BLK_DEV_MD=m/' .config
     sed -i '/^CONFIG_MD_RAID/s/=./=m/' .config
@@ -569,35 +574,37 @@ sed -i 's#/usr/share/v86d/initramfs##' .config
 
 # Add missing PCI config options
 SEARCH_PATHS="/usr/src/linux/drivers/ /usr/src/linux/arch/x86/"
-for drv in \$(lspci -k | grep -E "Kernel (driver in use|modules):" | sed 's/.*: //' | tr '_,[:upper:]' '-\n[:lower:]' | sort -u); do
-    SYMBOL=\$(find /usr/src/linux/ -name "Makefile" -exec grep "[[:space:]]+=[[:space:]]*\${drv/-/.}\.o" {} \; | sed -n 's/.*\(CONFIG_[A-Z0-9_]*\).*/\1/p')
+for drv in $(lspci -k | grep -E "Kernel (driver in use|modules):" | sed 's/.*: //' | tr '_,[:upper:]' '-\n[:lower:]' | sort -u); do
+    SYMBOL=$(find /usr/src/linux/ -name "Makefile" -exec grep "[[:space:]]+=[[:space:]]*${drv/-/.}\.o" {} \; | sed -n 's/.*\(CONFIG_[A-Z0-9_]*\).*/\1/p')
 
     # Search for the DRV_NAME string in .c files
-    if [ -z "\$SYMBOL" ]; then
-        SRC_FILE=\$(grep -rlE "(\.name[[:space:]]*=[[:space:]]*\"|#define DRV_NAME[[:space:]]*\"|MODULE_ALIAS.*)\${drv/-/.}\"" \$SEARCH_PATHS | head -n 1)
-        if [ -n "\$SRC_FILE" ]; then
-            OBJ_NAME=\$(basename "\$SRC_FILE" .c).o
-            DIR_PATH=\$(dirname "\$SRC_FILE")
-            SYMBOL=\$(grep -E "obj-\\\\$\(CONFIG_[A-Z0-9_]+\)[[:space:]]*[:+]=.*[[:space:]]\${OBJ_NAME}" "\$DIR_PATH/Makefile" | sed -n 's/.*\(CONFIG_[A-Z0-9_]*\).*/\1/p')
+    if [ -z "$SYMBOL" ]; then
+        SRC_FILE=$(grep -rlE "(\.name[[:space:]]*=[[:space:]]*\"|#define DRV_NAME[[:space:]]*\"|MODULE_ALIAS.*)${drv/-/.}\"" $SEARCH_PATHS | head -n 1)
+        if [ -n "$SRC_FILE" ]; then
+            OBJ_NAME=$(basename "$SRC_FILE" .c).o
+            DIR_PATH=$(dirname "$SRC_FILE")
+            SYMBOL=$(grep -E "obj-\\$\(CONFIG_[A-Z0-9_]+\)[[:space:]]*[:+]=.*[[:space:]]${OBJ_NAME}" "$DIR_PATH/Makefile" | sed -n 's/.*\(CONFIG_[A-Z0-9_]*\).*/\1/p')
 
-            if [ -z "\$SYMBOL" ]; then
-                VAR_NAME=\$(grep -E "[:+]=.*[[:space:]]\${OBJ_NAME}" "\$DIR_PATH/Makefile" | cut -d'=' -f1 | tr -d ' \t+:'| sed -E 's/-(y|m|objs)\$//')
-                [ -n "\$VAR_NAME" ] && SYMBOL=\$(grep -E "obj-\\\\$\(CONFIG_[A-Z0-9_]+\)[[:space:]]*[:+]=.*[[:space:]]\${VAR_NAME}.o" "\$DIR_PATH/Makefile" | sed -n 's/.*\(CONFIG_[A-Z0-9_]*\).*/\1/p')
+            if [ -z "$SYMBOL" ]; then
+                VAR_NAME=$(grep -E "[:+]=.*[[:space:]]${OBJ_NAME}" "$DIR_PATH/Makefile" | cut -d'=' -f1 | tr -d ' \t+:'| sed -E 's/-(y|m|objs)$//')
+                [ -n "$VAR_NAME" ] && SYMBOL=$(grep -E "obj-\\$\(CONFIG_[A-Z0-9_]+\)[[:space:]]*[:+]=.*[[:space:]]${VAR_NAME}.o" "$DIR_PATH/Makefile" | sed -n 's/.*\(CONFIG_[A-Z0-9_]*\).*/\1/p')
             fi
         fi
     fi
 
-    if [ -n "\$SYMBOL" ]; then
+    if [ -n "$SYMBOL" ]; then
         ASSIGN=y
-        [[ "\$SYMBOL" =~ "USB" ]] && ASSIGN=m
-        grep -q "^\${SYMBOL}=[ym]" .config || echo "\${SYMBOL}=\${ASSIGN}" | tee -a .config
+        [[ "$SYMBOL" =~ "USB" ]] && ASSIGN=m
+        grep -q "^${SYMBOL}=[ym]" .config || echo "${SYMBOL}=${ASSIGN}" | tee -a .config
     else
-        echo "Searching for \$drv not found"
+        echo "Searching for $drv not found"
     fi
 done
 
 echo -e "x\ny\n" | make menuconfig > /dev/null
+}
 
+setup_grub() {
 # Prepare grub config since grub-mkconfig runs as part of make install, will re-run after some further changes
 sed -i 's/^#GRUB_DISABLE_LINUX_UUID=[a-z]+/GRUB_DISABLE_LINUX_UUID=true/' /etc/default/grub
 sed -i 's/^#GRUB_CMDLINE_LINUX=""/GRUB_CMDLINE_LINUX="rootfstype=ext4 net.ifnames=0 panic=30"/' /etc/default/grub
@@ -612,10 +619,6 @@ pushd /boot
 # create a dummy link
 ln -s vmlinuz-1.1 vmlinuz
 popd
-time make -s -j$(($(nproc)*2)) bzImage modules && make modules_install install || bash
-rm /boot/vmlinuz.old
-ls -lh /boot
-
 mkdir -p /boot/efi/EFI/BOOT/
 curl https://boot.ipxe.org/x86_64-efi/ipxe-legacy.efi -o /boot/efi/EFI/BOOT/ipxex64.efi
 curl https://raw.githubusercontent.com/tianocore/edk2-archive/refs/heads/master/ShellBinPkg/UefiShell/X64/Shell.efi -o /boot/efi/EFI/BOOT/shellx64.efi
@@ -628,10 +631,27 @@ grub-install --target=i386-pc ${IDEV}
 grep -q console= /proc/cmdline && sed -i 's/ panic=30/ panic=30 console=tty0 console=ttyS0,115200/' /etc/default/grub
 grep -q console= /proc/cmdline && sed -i 's/^#GRUB_TERMINAL=.*/GRUB_TERMINAL="console serial"/' /etc/default/grub
 grep -q console= /proc/cmdline && echo 'GRUB_SERIAL_COMMAND="serial --speed=115200 --unit=0"' >> /etc/default/grub
-# enable in inittab
+# enable serial in inittab
 grep -q console= /proc/cmdline && sed -i 's/^#s0:/s0:/' /etc/inittab
+}
+
+make_kernel() {
+# 6000 is rough estimate of how many lines we usually get for a compile --dry-run unfortunatly failed
+time (pv -l -s 6000 -btcpe > /dev/null < <(make -j$(($(nproc)*2)) bzImage modules) && make modules_install install) || bash
+rm /boot/vmlinuz.old
+ls -lh /boot
+
 cd /usr/src/linux && make install
 ls -lh /boot; find /boot/efi; efibootmgr
+}
+
+declare -f get_kernel_config >> chrootstart.sh
+declare -f setup_grub >> chrootstart.sh
+declare -f make_kernel >> chrootstart.sh
+cat >> chrootstart.sh << EOF
+get_kernel_config
+setup_grub
+make_kernel
 
 cd /etc
 ln -fs /usr/share/zoneinfo/$TIMEZONE localtime
@@ -654,6 +674,7 @@ sed -i 's/^c1:12345:respawn:\/sbin\/agetty .* tty1 linux\$/& --noclear/' /etc/in
 cd /etc/init.d
 ln -s net.lo net.eth0
 ln -s net.lo net.br0
+rc-update add net.br0 default
 rc-update add watchdog boot
 rc-update add syslog-ng default
 rc-update add *cron* default
@@ -689,7 +710,8 @@ echo -e "*/30  *  * * *\troot\tsntp -S $NTPSERVER > /dev/null" >> /etc/crontab
 
 rc-update add named default
 
-if (grep -q usegitportage /proc/cmdline); then
+EOF
+use_git_portage() {
 # move to git based portage tree
 emerge -j2 app-eselect/eselect-repository
 umount /var/db/repos/gentoo
@@ -699,14 +721,17 @@ eselect repository disable gentoo
 eselect repository enable gentoo
 #sed -i 's#sync-uri = .*#sync-uri = git://anongit.gentoo.org/repo/gentoo.git#' /etc/portage/repos.conf/eselect-repo.conf
 emerge --sync
+}
+if (grep -q usegitportage /proc/cmdline); then
+declare -f use_git_portage >> chrootstart.sh
+echo "use_git_portage" >> chrootstart.sh
 fi
+cat >> chrootstart.sh << EOF
 
 [[ -n "${APCUPSDTOOLS}" ]] && rc-update add apcupsd default && rc-update add apcupsd.powerfail shutdown
 #todo configure snmp and add to startup
 
 #todo... if vmware emerge open-vm-tools?
-
-rc-update add net.br0 default
 
 umount /var/tmp
 EOF
