@@ -22,7 +22,7 @@ ensure_key_and_snap_source() {
     $shaurl || return 1
 
   # gpg import, trust starting with Gentoo L1 signing key
-  gpg -q \
+  gpg --homedir /etc/portage/gnupg -q \
     --trusted-key $TRUSTKEY \
     --import service-keys.gpg && rm service-keys.gpg
   #gpg --locate-key infrastructure@gentoo.org
@@ -32,7 +32,7 @@ ensure_key_and_snap_source() {
   [ -z "$shaurl" ] && return 0
   # Validate sha512sum
   # WARNING: prepare for this file to change format in future to BSD-like tagged checksum
-  expected_checksum_and_file=$(gpg \
+  expected_checksum_and_file=$(gpg --homedir /etc/portage/gnupg \
     --trusted-key $TRUSTKEY \
     -o- \
     --verify sha512sum.txt | awk '/\<gentoo-[0-9]*\.xz\.sqfs/{l=$0}END{print l}') \

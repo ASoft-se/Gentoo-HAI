@@ -165,7 +165,9 @@ cd /mnt/gentoo || exit 1
 #cleanup in case of previous try...
 [ -f "*.tar.{bz2,xz,sqfs}" ] && rm *.tar.{bz2,xz,sqfs}
 [ -f portagehelper.sh ] || curl -L --remote-name-all ${GHBASEURL}/portagehelper.sh -O
-sha512sum -c <<<"885be77e33926746ea070550110f30800e2b0a832dec84ac22fa41ef1a97ff8295ff64b091a5be6161cd7a5bc9653128105565237ee8bddbae40a7fec0a6eb1a  portagehelper.sh" || bash
+sha512sum -c <<<"638564dddeac5251cc7681f393a702c8d53b51f09534f48c88de891ae534d294210b23c09601bcb81bc5285c141e30226f9b938be4b441ab7dd575c1b55f9668  portagehelper.sh" || bash
+chmod a+x portagehelper.sh
+mkdir -p /etc/portage/gnupg; chown -R root:root /etc/portage/gnupg; chmod 750 /etc/portage/gnupg # to not warn, will be changed in chroot
 vardb=/mnt/gentoo/var/db
 . ./portagehelper.sh || bash
 DISTBASE=${DISTMIRROR}/releases/amd64/autobuilds/current-stage3-amd64-openrc/
@@ -181,8 +183,8 @@ echo -e "\e[93mdownload latest stage file $FILE\e[0m"
 curl -L -C - --remote-name-all --parallel-immediate --parallel \
   $DISTBASE$FILE $DISTBASE$FILE.DIGESTS $DISTBASE$FILE.asc || bash
 
-gpg --output $FILE.DIGESTS.verified --verify $FILE.DIGESTS && rm $FILE.DIGESTS
-gpg --verify $FILE.asc || bash
+gpg --homedir /etc/portage/gnupg --output $FILE.DIGESTS.verified --verify $FILE.DIGESTS && rm $FILE.DIGESTS
+gpg --homedir /etc/portage/gnupg --verify $FILE.asc || bash
 echo "Verifying stage3 SHA512 ..."
 # grab SHA512 lines and line after, then filter out line that ends with iso
 echo "$(grep -A1 SHA512 $FILE.DIGESTS.verified | grep $FILE\$)" | sha512sum -c || bash
@@ -192,7 +194,8 @@ rm $FILE.asc
 time tar xpf $FILE --xattrs-include='*.*' --numeric-owner && rm $FILE
 
 wait || exit 1
-mkdir root/.gnupg; chmod 700 root/.gnupg; cp ~/.gnupg/trustdb.gpg root/.gnupg/
+cp -rp /etc/portage/gnupg etc/portage
+rm -f etc/portage/gnupg/.getuto.last
 mount_current_snapshot || bash
 cp /etc/resolv.conf etc
 # make sure we are done with root unpack...
@@ -284,8 +287,9 @@ mount /var/tmp
 
 vardb=/var/db
 . ./portagehelper.sh || bash
+chown -R portage:portage /etc/portage/gnupg; chmod u=rwx,go=rx /etc/portage/gnupg
 ensure_snapshot_fstab
-time getuto & > /dev/null
+getuto &
 
 # fix for new mtab init
 ln -snf /proc/self/mounts /etc/mtab
