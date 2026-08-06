@@ -167,7 +167,7 @@ cd /mnt/gentoo || exit 1
 [ -f portagehelper.sh ] || curl -L --remote-name-all ${GHBASEURL}/portagehelper.sh -O
 sha512sum -c <<<"638564dddeac5251cc7681f393a702c8d53b51f09534f48c88de891ae534d294210b23c09601bcb81bc5285c141e30226f9b938be4b441ab7dd575c1b55f9668  portagehelper.sh" || bash
 chmod a+x portagehelper.sh
-mkdir -p /etc/portage/gnupg; chown -R root:root /etc/portage/gnupg; chmod 750 /etc/portage/gnupg # to not warn, will be changed in chroot
+mkdir -p /etc/portage/gnupg; chown -R root:root /etc/portage/gnupg; chmod 700 /etc/portage/gnupg # to not warn, will be changed in chroot
 vardb=/mnt/gentoo/var/db
 . ./portagehelper.sh || bash
 DISTBASE=${DISTMIRROR}/releases/amd64/autobuilds/current-stage3-amd64-openrc/
@@ -221,7 +221,6 @@ for p in run; do mount --bind /$p $p; mount --make-slave $p; done  || exit 1
 
 MAKECONF=etc/portage/make.conf
 [ ! -f $MAKECONF ] && [ -f etc/make.conf ] && MAKECONF=etc/make.conf
-echo $MAKECONF
 
 # CPU_FLAGS_X86 handled thru /etc/portage/package.use/00cpuflags inside chroot, see below
 
@@ -275,6 +274,9 @@ config_vpnUA="10.1.100.101/24"
 routes_vpnUA="10.100.0.0/16 via 10.1.100.1"
 EOF
 grep -q autoinstall /proc/cmdline || nano etc/conf.d/net
+
+pcimodules=$(lspci -k | grep -e "Kernel driver in use:" -e "Kernel modules:" | sed 's/.*: //' | tr '_,[:upper:]' '-\n[:lower:]' | sort -u)
+usbmodules=$(usb-devices | grep -i "Driver=" | sed 's/.*iver=//' | tr '_,[:upper:]' '-\n[:lower:]' | grep -v "(none)" | sort -u | sed '/^hub$/d')
 
 #generate chroot script
 cat > chrootstart.sh << EOF
@@ -338,17 +340,40 @@ wait
 time emerge -uv -j8 app-arch/lz4 sys-kernel/installkernel dosfstools gentoo-sources pciutils usbutils iproute2 sys-apps/memtest86+ ${NVMETOOLS} || bash
 mkdir /tftproot
 lspci
+lsusb
 
 eselect kernel set 1
 cd /usr/src/linux
 EOF
+declare -p pcimodules >> chrootstart.sh
+declare -p usbmodules >> chrootstart.sh
 declare -p IDEV >> chrootstart.sh
 declare -p GHBASEURL >> chrootstart.sh
 declare -p NVMEKERNEL >> chrootstart.sh
+set_kconfig() {
+    (
+    { set +x; } 2>/dev/null
+    # symbol gets everything before the =, and value everything after
+    local symbol="${1%%=*}"
+    local value="${1#*=}"
+    # update symbol if it exists, or append it to end
+    sed -i -E "/^#? *${symbol}[= ]/{s|.*|${symbol}=${value}|;:a;n;ba};\$a${symbol}=${value}" .config
+    )
+}
+
 get_kernel_config() {
 #getting a base kernel config
-wget ${GHBASEURL}/krn330.conf -O .config
-echo "
+curl -L ${GHBASEURL}/krn330.conf > .config
+(
+    { set +x; } 2>/dev/null
+    while read -r line; do
+        # Strip whitespace
+        line="${line##+([[:space:]])}"
+        line="${line%%+([[:space:]])}"
+
+        # only lines that are not empty, not comment and has =
+        [ -n "$line" ] && [[ "$line" != \#* ]] && [[ "$line" == *=* ]] && echo +set_kconfig "$line" >&2 && set_kconfig "$line"
+done << EOF
 # Gentoo Linux
 CONFIG_GENTOO_LINUX=y
 CONFIG_GENTOO_LINUX_UDEV=y
@@ -561,13 +586,21 @@ CONFIG_EXT2_FS_XATTR=y
 CONFIG_EXT4_FS_POSIX_ACL=y
 CONFIG_EXT4_FS_SECURITY=y
 CONFIG_TMPFS_POSIX_ACL=y
-" >> .config
+EOF
+)
+
+# Cleanup some invalid options
+sed -i \
+  -e "/^CONFIG_BASE_SMALL=0/d" \
+  -e '/^CONFIG_NF_CT_PROTO_GRE/s/=m/=y/' \
+  -e '/^CONFIG_NF_CT_PROTO_SCTP/s/=m/=y/' \
+  .config
 
 DISK_COUNT=$(readlink -f /sys/block/[sv]d* 2>/dev/null | grep -v "usb" | wc -l)
 if [ "$DISK_COUNT" -le 1 ]; then
     echo "Single disk detected. change MD/RAID to modules"
-    sed -i 's/CONFIG_BLK_DEV_MD=./CONFIG_BLK_DEV_MD=m/' .config
-    sed -i '/^CONFIG_MD_RAID/s/=./=m/' .config
+    set_kconfig "CONFIG_BLK_DEV_MD=m"
+    set_kconfig "CONFIG_MD_RAID=m"
 fi
 
 # Remove old low CPU core count
@@ -576,10 +609,11 @@ sed -i "/^CONFIG_NR_CPUS=.*$/d" .config
 # v86d is dead so remove its initramfs
 sed -i 's#/usr/share/v86d/initramfs##' .config
 
-# Add missing PCI config options
+# Add missing PCI/USB config options
 SEARCH_PATHS="/usr/src/linux/drivers/ /usr/src/linux/arch/x86/"
-for drv in $(lspci -k | grep -E "Kernel (driver in use|modules):" | sed 's/.*: //' | tr '_,[:upper:]' '-\n[:lower:]' | sort -u); do
-    SYMBOL=$(find /usr/src/linux/ -name "Makefile" -exec grep "[[:space:]]+=[[:space:]]*${drv/-/.}\.o" {} \; | sed -n 's/.*\(CONFIG_[A-Z0-9_]*\).*/\1/p')
+drvstocheck=$(echo -e "$pcimodules\n$usbmodules\n$(lspci -k | grep -e "Kernel driver in use:" -e "Kernel modules:" | sed 's/.*: //' | tr '_,[:upper:]' '-\n[:lower:]' | sort -u)" | sort -u)
+for drv in $drvstocheck; do
+    SYMBOL=$(find /usr/src/linux/ -name "Makefile" -exec grep "[[:space:]]*=[[:space:]]*${drv/-/.}\.o" {} \; | sed -En "s/.*(CONFIG_[A-Z0-9_]*).*/\1/p")
 
     # Search for the DRV_NAME string in .c files
     if [ -z "$SYMBOL" ]; then
@@ -594,15 +628,13 @@ for drv in $(lspci -k | grep -E "Kernel (driver in use|modules):" | sed 's/.*: /
                 [ -n "$VAR_NAME" ] && SYMBOL=$(grep -E "obj-\\$\(CONFIG_[A-Z0-9_]+\)[[:space:]]*[:+]=.*[[:space:]]${VAR_NAME}.o" "$DIR_PATH/Makefile" | sed -n 's/.*\(CONFIG_[A-Z0-9_]*\).*/\1/p')
             fi
         fi
+        if [ -z "$SYMBOL" ]; then
+            echo "Searching for $drv not found"
+            continue
+        fi
     fi
 
-    if [ -n "$SYMBOL" ]; then
-        ASSIGN=y
-        [[ "$SYMBOL" =~ "USB" ]] && ASSIGN=m
-        grep -q "^${SYMBOL}=[ym]" .config || echo "${SYMBOL}=${ASSIGN}" | tee -a .config
-    else
-        echo "Searching for $drv not found"
-    fi
+    [[ "$SYMBOL" =~ "USB" || " $usbmodules " =~ [[:space:]]${drv}[[:space:]] ]] && set_kconfig "${SYMBOL}=m" || set_kconfig "${SYMBOL}=y"
 done
 
 echo -e "x\ny\n" | make menuconfig > /dev/null
@@ -624,8 +656,8 @@ pushd /boot
 ln -s vmlinuz-1.1 vmlinuz
 popd
 mkdir -p /boot/efi/EFI/BOOT/
-curl https://boot.ipxe.org/x86_64-efi/ipxe-legacy.efi -o /boot/efi/EFI/BOOT/ipxex64.efi
-curl https://raw.githubusercontent.com/tianocore/edk2-archive/refs/heads/master/ShellBinPkg/UefiShell/X64/Shell.efi -o /boot/efi/EFI/BOOT/shellx64.efi
+curl -L https://boot.ipxe.org/x86_64-efi/ipxe-legacy.efi -o /boot/efi/EFI/BOOT/ipxex64.efi
+curl -L https://raw.githubusercontent.com/tianocore/edk2-archive/refs/heads/master/ShellBinPkg/UefiShell/X64/Shell.efi -o /boot/efi/EFI/BOOT/shellx64.efi
 [ -f /etc/grub.d/39_efitools ] || curl -L ${GHBASEURL}/grub.d/39_efitools -o /etc/grub.d/39_efitools
 sha512sum -c <<<"cae63738889e626906270c6ad853970340d83044363680db97a70fdc8b6ec7960ba9ea7553afaf79bd8b64a61800ecf782742509e9e84d1c60b1e1e6de9d5346  /etc/grub.d/39_efitools" || bash
 chmod a+x /etc/grub.d/39_efitools
@@ -649,6 +681,7 @@ cd /usr/src/linux && make install
 ls -lh /boot; find /boot/efi; efibootmgr
 }
 
+declare -f set_kconfig >> chrootstart.sh
 declare -f get_kernel_config >> chrootstart.sh
 declare -f setup_grub >> chrootstart.sh
 declare -f make_kernel >> chrootstart.sh
