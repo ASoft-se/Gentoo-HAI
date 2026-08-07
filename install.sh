@@ -365,8 +365,13 @@ set_kconfig() {
     # symbol gets everything before the =, and value everything after
     local symbol="${1%%=*}"
     local value="${1#*=}"
+    # keep a separate lock to avoid race issues
+    exec 9>>.config.lock
+    flock -x 9
     # update symbol if it exists, or append it to end
     sed -i -E "/^#? *${symbol}[= ]/{s|.*|${symbol}=${value}|;:a;n;ba};\$a${symbol}=${value}" .config
+    flock -u 9
+    exec 9>&-
     )
 }
 
@@ -381,7 +386,7 @@ curl -L ${GHBASEURL}/krn330.conf > .config
         line="${line%%+([[:space:]])}"
 
         # only lines that are not empty, not comment and has =
-        [ -n "$line" ] && [[ "$line" != \#* ]] && [[ "$line" == *=* ]] && echo +set_kconfig "$line" >&2 && set_kconfig "$line"
+        [ -n "$line" ] && [[ "$line" != \#* ]] && [[ "$line" == *=* ]] && echo "+ set_kconfig $line" >&2 && set_kconfig "$line"
 done << EOF
 # Gentoo Linux
 CONFIG_GENTOO_LINUX=y
@@ -622,6 +627,17 @@ sed -i 's#/usr/share/v86d/initramfs##' .config
 SEARCH_PATHS="/usr/src/linux/drivers/ /usr/src/linux/arch/x86/"
 drvstocheck=$(echo -e "$pcimodules\n$usbmodules\n$(lspci -k | grep -e "Kernel driver in use:" -e "Kernel modules:" | sed 's/.*: //' | tr '_,[:upper:]' '-\n[:lower:]' | sort -u)" | sort -u)
 for drv in $drvstocheck; do
+    set_kconfig_by_module "$drv" &
+done
+wait
+rm .config.lock
+
+echo -e "x\ny\n" | make menuconfig > /dev/null
+}
+set_kconfig_by_module() {
+    (
+    { set +x; } 2>/dev/null
+    local drv="$1"
     SYMBOL=$(find /usr/src/linux/ -name "Makefile" -exec grep "[[:space:]]*=[[:space:]]*${drv/-/.}\.o" {} \; | sed -En "s/.*(CONFIG_[A-Z0-9_]*).*/\1/p")
 
     # Search for the DRV_NAME string in .c files
@@ -643,10 +659,11 @@ for drv in $drvstocheck; do
         fi
     fi
 
-    [[ "$SYMBOL" =~ "USB" || " $usbmodules " =~ [[:space:]]${drv}[[:space:]] ]] && set_kconfig "${SYMBOL}=m" || set_kconfig "${SYMBOL}=y"
-done
-
-echo -e "x\ny\n" | make menuconfig > /dev/null
+    [[ "$SYMBOL" =~ "USB" || " $usbmodules " =~ [[:space:]]${drv}[[:space:]] ]] && ASSIGN=m || ASSIGN=y
+    wait
+    echo "+ set_kconfig ${SYMBOL}=$ASSIGN  # For module $drv" >&2
+    set_kconfig "${SYMBOL}=$ASSIGN"
+    )
 }
 
 setup_grub() {
@@ -691,6 +708,7 @@ ls -lh /boot; find /boot/efi; efibootmgr
 }
 
 declare -f set_kconfig >> chrootstart.sh
+declare -f set_kconfig_by_module >> chrootstart.sh
 declare -f get_kernel_config >> chrootstart.sh
 declare -f setup_grub >> chrootstart.sh
 declare -f make_kernel >> chrootstart.sh
