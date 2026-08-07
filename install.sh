@@ -44,7 +44,7 @@ fi
 IDEV=${IDEV:-/dev/sda}
 IDEVP=${IDEV}
 # if disk name ends with number, then partition is sepparated with p
-echo ${IDEV} | grep -q -e "[0-9]$" && IDEVP=${IDEV}p
+[[ "${IDEV}" =~ [0-9]$ ]] && IDEVP=${IDEV}p
 
 if [ "$HAIHOSTNAME" == "livecd" ]; then
   echo Change hostname before you continue since it will be used for the created host.
@@ -73,8 +73,10 @@ if [[ -n "${BATTERYDEV}" ]]; then
     BATTERYTOOLS=sys-power/acpi
 fi
 
+partition_format_mount() {
 #Create bios boot, 128MB boot, 128MB EFI, 4GB Swap and the rest root on ${IDEV}
-echo "gpt
+fdisk ${IDEV} << EOF || exit 1
+gpt
 print
 new
 99
@@ -129,7 +131,7 @@ GRUB BIOS Data
 return
 print
 write
-" | fdisk ${IDEV} || exit 1
+EOF
 sfdisk -d ${IDEV}
 file -s ${IDEV}
 # Wait a bit for the dust to settle on the new devices
@@ -157,6 +159,8 @@ mkdir -p /mnt/gentoo/boot || exit 1
 mount ${IDEVP}1 /mnt/gentoo/boot || exit 1
 mkdir -p /mnt/gentoo/boot/efi || exit 1
 mount ${IDEVP}2 /mnt/gentoo/boot/efi || exit 1
+}
+partition_format_mount
 
 # wait to make sure sntp is done
 wait $pid_ntp
@@ -203,6 +207,7 @@ cp /etc/resolv.conf etc
 echo "# Set to the hostname of this machine
 hostname=\"$HAIHOSTNAME\"
 " > etc/conf.d/hostname
+prepare_chroot_mounts() {
 #change fstab to match disk layout
 echo -e "
 ${IDEVP}1		/boot		ext2		noauto,noatime	1 2
@@ -212,12 +217,16 @@ LABEL=swap0		none		swap		sw		0 0
 
 none			/var/tmp	tmpfs		size=6G,nr_inodes=1M 0 0
 " >> etc/fstab
-sed -i '/\/dev\/BOOT.*/d' etc/fstab
-sed -i '/\/dev\/ROOT.*/d' etc/fstab
-sed -i '/\/dev\/SWAP.*/d' etc/fstab
+sed -i \
+  -e '/\/dev\/BOOT.*/d' \
+  -e '/\/dev\/ROOT.*/d' \
+  -e '/\/dev\/SWAP.*/d' \
+  etc/fstab
 mount --types proc /proc proc
 for p in sys dev; do mount --rbind /$p $p; mount --make-rslave $p; done  || exit 1
 for p in run; do mount --bind /$p $p; mount --make-slave $p; done  || exit 1
+}
+prepare_chroot_mounts
 
 MAKECONF=etc/portage/make.conf
 [ ! -f $MAKECONF ] && [ -f etc/make.conf ] && MAKECONF=etc/make.conf
@@ -779,12 +788,9 @@ rm chrootstart.sh
 # Delete temporary change to avoid insufficient free space, emerge job parallelism reduced
 sed -i 's/--jobs-tmpdir-require-free-gb=[0-9]\+ \?//g' $MAKECONF
 
-umount var/tmp
 rm -rf var/tmp/*
 rm -rf var/cache/distfiles
-umount *
-cd /
-## umount somehow fails recently, but can not find usage, lets go lazy
-umount -l /mnt/gentoo  || exit 1
+cd
+umount -R /mnt/gentoo || umount -lR /mnt/gentoo || exit 1
 # halt in QEMU guest instead of reboot to messure and autohandle on vm shutdown
 grep -q setupdonehalt /proc/cmdline && halt || reboot
