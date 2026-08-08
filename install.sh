@@ -159,6 +159,7 @@ mkdir -p /mnt/gentoo/boot || exit 1
 mount ${IDEVP}1 /mnt/gentoo/boot || exit 1
 mkdir -p /mnt/gentoo/boot/efi || exit 1
 mount ${IDEVP}2 /mnt/gentoo/boot/efi || exit 1
+mkdir -p /mnt/gentoo/boot/efi/EFI/BOOT/
 }
 partition_format_mount
 
@@ -177,8 +178,7 @@ vardb=/mnt/gentoo/var/db
 DISTBASE=${DISTMIRROR}/releases/amd64/autobuilds/current-stage3-amd64-openrc/
 ensure_key_and_snap_source || bash
 
-mkdir -p $pathrepo
-mkdir -p $pathsnapshots
+mkdir -p $pathrepo $pathsnapshots
 update_snapshot &
 
 FILE=$(curl -q $DISTBASE --output - | grep -o -E 'stage3-amd64-openrc-\w*\.tar\.xz' | sort -r | head -1)
@@ -287,13 +287,7 @@ grep -q autoinstall /proc/cmdline || nano etc/conf.d/net
 pcimodules=$(lspci -k | grep -e "Kernel driver in use:" -e "Kernel modules:" | sed 's/.*: //' | tr '_,[:upper:]' '-\n[:lower:]' | sort -u)
 usbmodules=$(usb-devices | grep -i "Driver=" | sed 's/.*iver=//' | tr '_,[:upper:]' '-\n[:lower:]' | grep -v "(none)" | sort -u | sed '/^hub$/d')
 
-#generate chroot script
-cat > chrootstart.sh << EOF
-#!/bin/bash
-env-update
-source /etc/profile
-echo "root:${SET_PASS}" | chpasswd -c BCRYPT
-set -x
+prebuild_setup() {
 mount /var/tmp
 
 vardb=/var/db
@@ -305,60 +299,60 @@ getuto &
 # fix for new mtab init
 ln -snf /proc/self/mounts /etc/mtab
 
-[ -d /etc/portage/repos.conf ] || mkdir -p /etc/portage/repos.conf
-[ -d /etc/portage/package.accept_keywords ] || mkdir -p /etc/portage/package.accept_keywords
-[ -d /etc/portage/package.use ] || mkdir -p /etc/portage/package.use
-[ -d /etc/portage/package.mask ] || mkdir -p /etc/portage/package.mask
-
-mkdir -p /etc/portage/package.accept_keywords
-mkdir -p /etc/portage/package.use
-grep -q gentoo-sources /etc/portage/package.accept_keywords/* || echo sys-kernel/gentoo-sources > /etc/portage/package.accept_keywords/kernel &
-grep -q net-dns/bind /etc/portage/package.use/* || echo net-dns/bind dlz idn caps threads >> /etc/portage/package.use/bind &
+mkdir -p /etc/portage/repos.conf \
+  /etc/portage/package.accept_keywords \
+  /etc/portage/package.use \
+  /etc/portage/package.mask \
+  /etc/portage/package.accept_keywords \
+  /etc/portage/package.use \
+  /etc/udev/rules.d/ \
+  /tftproot
+grep -qr gentoo-sources /etc/portage/package.accept_keywords/ || echo sys-kernel/gentoo-sources > /etc/portage/package.accept_keywords/kernel &
+grep -qr net-dns/bind /etc/portage/package.use/ || echo net-dns/bind dlz idn caps threads >> /etc/portage/package.use/bind &
 echo touch to disable the unpredictable "PredictableNetworkInterfaceNames"
-mkdir -p /etc/udev/rules.d/
 touch /etc/udev/rules.d/80-net-name-slot.rules &
 touch /etc/udev/rules.d/80-net-setup-link.rules &
-wait
-time USE=-snmp emerge -uvN1 -j8 --keep-going y portage curl ntp gentoolkit cpuid2cpuflags pv || bash
 touch /var/db/ntp-kod
-sntp -S $NTPSERVER
+[ -f /etc/portage/package.mask/gentoo.conf ] || cp /usr/share/portage/config/repos.conf /etc/portage/repos.conf/gentoo.conf
+ln -fs /usr/share/zoneinfo/$TIMEZONE /etc/localtime
+
 if [[ -n "${APCUPSDTOOLS}" ]]; then
     #snmp support in current apcupsd is buggy
-    grep -q sys-power/apcupsd /etc/portage/package.use/* || echo sys-power/apcupsd -snmp >> /etc/portage/package.use/apcupsd
+    grep -qr sys-power/apcupsd /etc/portage/package.use/ || echo sys-power/apcupsd -snmp >> /etc/portage/package.use/apcupsd &
     # apcupsd requires wall which is included in util-linux iif tty-helpers is set
-    grep -q sys-apps/util-linux /etc/portage/package.use/* || echo sys-apps/util-linux tty-helpers >> /etc/portage/package.use/apcupsd
+    grep -qr sys-apps/util-linux /etc/portage/package.use/ || echo sys-apps/util-linux tty-helpers >> /etc/portage/package.use/apcupsd &
 fi
-grep -q net-firewall/nftables /etc/portage/package.use/* || echo net-firewall/nftables json python xtables >> /etc/portage/package.use/nftables
-grep -q net-analyzer/net-snmp /etc/portage/package.use/* || echo net-analyzer/net-snmp lm-sensors >> /etc/portage/package.use/net-snmp
-grep -q sys-kernel/installkernel /etc/portage/package.use/* || echo sys-kernel/installkernel grub >> /etc/portage/package.use/grub
-[[ -n "${NVMETOOLS}" ]] && (grep -q nvme /etc/portage/package.accept_keywords/* || echo ${NVMETOOLS} > /etc/portage/package.accept_keywords/nvme) &
+grep -qr net-firewall/nftables /etc/portage/package.use/ || echo net-firewall/nftables json python xtables >> /etc/portage/package.use/nftables &
+grep -qr net-analyzer/net-snmp /etc/portage/package.use/ || echo net-analyzer/net-snmp lm-sensors >> /etc/portage/package.use/net-snmp &
+grep -qr sys-kernel/installkernel /etc/portage/package.use/ || echo sys-kernel/installkernel grub >> /etc/portage/package.use/grub &
+[[ -n "${NVMETOOLS}" ]] && (grep -qr nvme /etc/portage/package.accept_keywords/ || echo ${NVMETOOLS} > /etc/portage/package.accept_keywords/nvme) &
+}
 
-#add new CPU_FLAGS_X86
-echo "*/* \$(cpuid2cpuflags)" > /etc/portage/package.use/00cpuflags
+initial_emerge() {
+wait
+time USE=-snmp emerge -uvN1 -j8 --keep-going y portage curl ntp gentoolkit cpuid2cpuflags pv || bash
 # prefetch some packages
 emerge -fq pciutils gentoo-sources grub > /dev/null &
+}
+initial_postemerge_setup() {
+sntp -S $NTPSERVER
 
+#add new CPU_FLAGS_X86
+echo "*/* $(cpuid2cpuflags)" > /etc/portage/package.use/00cpuflags
+}
+
+up2date_emerge() {
 #start out with being up2date
 #we expect that this can fail
 time emerge -uvDN -j4 --keep-going y world --exclude gcc glibc --binpkg-respect-use=y
 etc-update --automode -5
+}
 
-[ -f /etc/portage/package.mask/gentoo.conf ] || cp /usr/share/portage/config/repos.conf /etc/portage/repos.conf/gentoo.conf
-
+kernel_emerge() {
 wait
 time emerge -uv -j8 app-arch/lz4 sys-kernel/installkernel dosfstools gentoo-sources pciutils usbutils iproute2 sys-apps/memtest86+ ${NVMETOOLS} || bash
-mkdir /tftproot
-lspci
-lsusb
+}
 
-eselect kernel set 1
-cd /usr/src/linux
-EOF
-declare -p pcimodules >> chrootstart.sh
-declare -p usbmodules >> chrootstart.sh
-declare -p IDEV >> chrootstart.sh
-declare -p GHBASEURL >> chrootstart.sh
-declare -p NVMEKERNEL >> chrootstart.sh
 set_kconfig() {
     (
     { set +x; } 2>/dev/null
@@ -376,6 +370,10 @@ set_kconfig() {
 }
 
 get_kernel_config() {
+lspci
+lsusb
+eselect kernel set 1
+cd /usr/src/linux
 #getting a base kernel config
 curl -L ${GHBASEURL}/krn330.conf > .config
 (
@@ -681,7 +679,6 @@ pushd /boot
 # create a dummy link
 ln -s vmlinuz-1.1 vmlinuz
 popd
-mkdir -p /boot/efi/EFI/BOOT/
 curl -L https://boot.ipxe.org/x86_64-efi/ipxe-legacy.efi -o /boot/efi/EFI/BOOT/ipxex64.efi
 curl -L https://raw.githubusercontent.com/tianocore/edk2-archive/refs/heads/master/ShellBinPkg/UefiShell/X64/Shell.efi -o /boot/efi/EFI/BOOT/shellx64.efi
 [ -f /etc/grub.d/39_efitools ] || curl -L ${GHBASEURL}/grub.d/39_efitools -o /etc/grub.d/39_efitools
@@ -707,26 +704,18 @@ cd /usr/src/linux && make install
 ls -lh /boot; find /boot/efi; efibootmgr
 }
 
-declare -f set_kconfig >> chrootstart.sh
-declare -f set_kconfig_by_module >> chrootstart.sh
-declare -f get_kernel_config >> chrootstart.sh
-declare -f setup_grub >> chrootstart.sh
-declare -f make_kernel >> chrootstart.sh
-cat >> chrootstart.sh << EOF
-get_kernel_config
-setup_grub
-make_kernel
-
-cd /etc
-ln -fs /usr/share/zoneinfo/$TIMEZONE localtime
+postkernel_emerge() {
 emerge -uv -j8 --keep-going y iptables nftables net-snmp dev-vcs/git ${APCUPSDTOOLS} iotop iftop ddrescue sys-apps/pv tcpdump nmap netkit-telnetd dmidecode hdparm \
  mlocate postfix bind dhcp sys-apps/watchdog net-ftp/tftp-hpa dhcpcd app-misc/mc smartmontools syslog-ng virtual/cron logrotate lsof ${BATTERYTOOLS:=} || bash
-#rerun make sure up2date
-time emerge -uvDN -j4 world --exclude gcc glibc || bash
+}
+
+postbuild_configure() {
+cd /etc
 etc-update --automode -5
 sed -i 's/^#CHROOT=/CHROOT=/' /etc/conf.d/named
 emerge --config net-dns/bind
 find /chroot/dns
+rc-update add named default
 #TODO sed fix syslog unix-stream("/chroot/dns/dev/log");
 sed -i 's/^# DHCPD_CHROOT=/DHCPD_CHROOT=/' /etc/conf.d/dhcpd
 #TODO syslog unix-stream("...dhcp");
@@ -734,7 +723,7 @@ dispatch-conf
 
 #todo fix with sed ... but virtual machine dont save clock ;)
 #/etc/init.d/hwclock save
-sed -i 's/^c1:12345:respawn:\/sbin\/agetty .* tty1 linux\$/& --noclear/' /etc/inittab || bash
+sed -i 's/^c1:12345:respawn:\/sbin\/agetty .* tty1 linux$/& --noclear/' /etc/inittab || bash
 cd /etc/init.d
 ln -s net.lo net.eth0
 ln -s net.lo net.br0
@@ -772,9 +761,12 @@ echo -e "*/30  *  * * *\troot\tsntp -S $NTPSERVER > /dev/null" >> /etc/crontab
 # some variants of cron needs to have default cron installed
 #crontab /etc/crontab
 
-rc-update add named default
+[[ -n "${APCUPSDTOOLS}" ]] && rc-update add apcupsd default && rc-update add apcupsd.powerfail shutdown
+#todo configure snmp and add to startup
 
-EOF
+#todo... if vmware emerge open-vm-tools?
+}
+
 use_git_portage() {
 # move to git based portage tree
 emerge -j2 app-eselect/eselect-repository
@@ -786,19 +778,57 @@ eselect repository enable gentoo
 #sed -i 's#sync-uri = .*#sync-uri = git://anongit.gentoo.org/repo/gentoo.git#' /etc/portage/repos.conf/eselect-repo.conf
 emerge --sync
 }
+
+#generate chroot script
+cat > chrootstart.sh << EOF
+#!/bin/bash
+env-update
+source /etc/profile
+echo "root:${SET_PASS}" | chpasswd -c BCRYPT
+EOF
+declare -p TIMEZONE >> chrootstart.sh
+declare -p APCUPSDTOOLS >> chrootstart.sh
+declare -p NVMETOOLS >> chrootstart.sh
+declare -p NTPSERVER >> chrootstart.sh
+
+declare -p GHBASEURL >> chrootstart.sh
+declare -p NVMEKERNEL >> chrootstart.sh
+declare -p pcimodules >> chrootstart.sh
+declare -p usbmodules >> chrootstart.sh
+declare -p IDEV >> chrootstart.sh
+declare -p BATTERYTOOLS >> chrootstart.sh
+declare -p ROOTEMAIL >> chrootstart.sh
+
+declare -f prebuild_setup >> chrootstart.sh
+declare -f initial_emerge >> chrootstart.sh
+declare -f initial_postemerge_setup >> chrootstart.sh
+declare -f up2date_emerge >> chrootstart.sh
+declare -f kernel_emerge >> chrootstart.sh
+declare -f set_kconfig >> chrootstart.sh
+declare -f set_kconfig_by_module >> chrootstart.sh
+declare -f get_kernel_config >> chrootstart.sh
+declare -f setup_grub >> chrootstart.sh
+declare -f make_kernel >> chrootstart.sh
+declare -f postkernel_emerge >> chrootstart.sh
+declare -f postbuild_configure >> chrootstart.sh
+cat >> chrootstart.sh << EOF
+set -x
+prebuild_setup
+initial_emerge
+initial_postemerge_setup
+up2date_emerge
+kernel_emerge
+get_kernel_config
+setup_grub
+make_kernel
+postkernel_emerge
+postbuild_configure
+EOF
+
 if (grep -q usegitportage /proc/cmdline); then
 declare -f use_git_portage >> chrootstart.sh
 echo "use_git_portage" >> chrootstart.sh
 fi
-cat >> chrootstart.sh << EOF
-
-[[ -n "${APCUPSDTOOLS}" ]] && rc-update add apcupsd default && rc-update add apcupsd.powerfail shutdown
-#todo configure snmp and add to startup
-
-#todo... if vmware emerge open-vm-tools?
-
-umount /var/tmp
-EOF
 chmod a+x chrootstart.sh
 
 time chroot . ./chrootstart.sh
@@ -806,6 +836,7 @@ rm chrootstart.sh
 # Delete temporary change to avoid insufficient free space, emerge job parallelism reduced
 sed -i 's/--jobs-tmpdir-require-free-gb=[0-9]\+ \?//g' $MAKECONF
 
+umount var/tmp/
 rm -rf var/tmp/*
 rm -rf var/cache/distfiles
 cd
