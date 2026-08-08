@@ -308,11 +308,11 @@ mkdir -p /etc/portage/repos.conf \
   /etc/udev/rules.d/ \
   /tftproot
 grep -qr gentoo-sources /etc/portage/package.accept_keywords/ || echo sys-kernel/gentoo-sources > /etc/portage/package.accept_keywords/kernel &
-grep -qr net-dns/bind /etc/portage/package.use/ || echo net-dns/bind dlz idn caps threads >> /etc/portage/package.use/bind &
+grep -qr net-dns/bind /etc/portage/package.use/ || echo net-dns/bind dlz caps threads >> /etc/portage/package.use/bind &
 echo touch to disable the unpredictable "PredictableNetworkInterfaceNames"
 touch /etc/udev/rules.d/80-net-name-slot.rules &
 touch /etc/udev/rules.d/80-net-setup-link.rules &
-touch /var/db/ntp-kod
+touch /var/db/ntp-kod &
 [ -f /etc/portage/package.mask/gentoo.conf ] || cp /usr/share/portage/config/repos.conf /etc/portage/repos.conf/gentoo.conf
 ln -fs /usr/share/zoneinfo/$TIMEZONE /etc/localtime
 
@@ -330,12 +330,15 @@ grep -qr sys-kernel/installkernel /etc/portage/package.use/ || echo sys-kernel/i
 
 initial_emerge() {
 wait
-time USE=-snmp emerge -uvN1 -j8 --keep-going y portage curl ntp gentoolkit cpuid2cpuflags pv || bash
-# prefetch some packages
-emerge -fq pciutils gentoo-sources grub > /dev/null &
+time emerge -uvN1 -j8 --keep-going y portage curl net-misc/chrony gentoolkit cpuid2cpuflags pv || bash
 }
 initial_postemerge_setup() {
-sntp -S $NTPSERVER
+# prefetch some packages
+emerge -fq pciutils gentoo-sources grub > /dev/null &
+chronyd -q -t 60 <<< "
+server $NTPSERVER iburst maxsamples 1
+makestep 0.1 -1
+" 2>&1 | grep clock &
 
 #add new CPU_FLAGS_X86
 echo "*/* $(cpuid2cpuflags)" > /etc/portage/package.use/00cpuflags
@@ -757,7 +760,7 @@ newaliases
 
 # TODO detect if username should be included or not
 #sed -i 's/\troot\t/\t/' /etc/crontab
-echo -e "*/30  *  * * *\troot\tsntp -S $NTPSERVER > /dev/null" >> /etc/crontab
+echo -e "*/30  *  * * *\troot\tchronyd -q -t 30 'server $NTPSERVER iburst' > /dev/null" >> /etc/crontab
 # some variants of cron needs to have default cron installed
 #crontab /etc/crontab
 
