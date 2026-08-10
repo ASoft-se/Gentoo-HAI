@@ -1,6 +1,5 @@
 #!/bin/bash
 echo $0 Got arguments: $*
-netscript="-nic user,model=virtio"
 
 DISK=kvm_lxgentootest.qcow2
 disktype="
@@ -12,8 +11,9 @@ disktypeahci="
 "
 
 USEEFI=""
-VNC="-vnc 127.0.0.1:22 -k sv"
+VNC="-vnc [::1]:22 -k sv"
 VGA=""
+efibios=""
 memorygb=2
 POSITIONAL=()
 while (($#)); do
@@ -41,7 +41,6 @@ netscript="
   useefi)
     USEEFI=YES
     cp /usr/share/edk2-ovmf/OVMF_VARS.fd kvm_lxgentootest_VARS.fd
-    #efibios="-smbios type=0,uefi=on -bios /usr/share/edk2-ovmf/OVMF_CODE.fd"
     efibios="-drive if=pflash,unit=0,format=raw,readonly=on,file=/usr/share/edk2-ovmf/OVMF_CODE.fd \
       -drive if=pflash,unit=1,format=raw,file=kvm_lxgentootest_VARS.fd"
   ;;
@@ -86,6 +85,8 @@ set -- "${POSITIONAL[@]}" # restore positional parameters
 
 [[ "$VNC" != "" ]] && (sleep 3; vncviewer :22) &
 
+: "${netscript:=-nic user,model=virtio,hostfwd=tcp::2222-:22,tftp=.}"
+
 set -x
 jn=$(($(nproc)/2))
 qemu-system-x86_64 -enable-kvm -M q35 -m $(($memorygb*1024)) -cpu host -smp $jn,cores=$jn,sockets=1 -name lxgentootest \
@@ -93,6 +94,7 @@ qemu-system-x86_64 -enable-kvm -M q35 -m $(($memorygb*1024)) -cpu host -smp $jn,
 ${disktype} \
 $netscript \
 -device i6300esb -action watchdog=reset \
+-device virtio-rng-pci \
 -usb ${VGA} ${VNC} \
 ${efibios} \
 $*
