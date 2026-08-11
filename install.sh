@@ -322,6 +322,7 @@ if [[ -n "${APCUPSDTOOLS}" ]]; then
     # apcupsd requires wall which is included in util-linux iif tty-helpers is set
     grep -qr sys-apps/util-linux /etc/portage/package.use/ || echo sys-apps/util-linux tty-helpers >> /etc/portage/package.use/apcupsd &
 fi
+echo app-admin/syslog-ng -snmp >> /etc/portage/package.use/syslog-ng &
 grep -qr net-firewall/nftables /etc/portage/package.use/ || echo net-firewall/nftables json python xtables >> /etc/portage/package.use/nftables &
 grep -qr net-analyzer/net-snmp /etc/portage/package.use/ || echo net-analyzer/net-snmp lm-sensors >> /etc/portage/package.use/net-snmp &
 grep -qr sys-kernel/installkernel /etc/portage/package.use/ || echo sys-kernel/installkernel grub >> /etc/portage/package.use/grub &
