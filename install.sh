@@ -34,6 +34,7 @@ SET_PASS=${SET_PASS:-password}
 HAIHOSTNAME=${HAIHOSTNAME:-$(hostname)}
 
 NVMETOOLS=
+NVMEKERNEL=
 if [ -b /dev/nvme0n1 ]; then
   IDEV=${IDEV:-/dev/nvme0n1}
   NVMETOOLS=sys-apps/nvme-cli
@@ -575,7 +576,7 @@ CONFIG_NET_SCH_CODEL=m
 CONFIG_NET_SCH_FQ_CODEL=m
 
 # if we have nvme hardware
-${NVMEKERNEL:-}
+${NVMEKERNEL}
 
 # Serial console
 CONFIG_SERIAL_8250=y
@@ -787,39 +788,33 @@ eselect repository enable gentoo
 emerge --sync
 }
 
-#generate chroot script
-cat > chrootstart.sh << EOF
-#!/bin/bash
+generate_chroot_script() {
+  cat << EOF
 env-update
 source /etc/profile
 echo "root:${SET_PASS}" | chpasswd -c BCRYPT
 EOF
-declare -p TIMEZONE >> chrootstart.sh
-declare -p APCUPSDTOOLS >> chrootstart.sh
-declare -p NVMETOOLS >> chrootstart.sh
-declare -p NTPSERVER >> chrootstart.sh
-
-declare -p GHBASEURL >> chrootstart.sh
-declare -p NVMEKERNEL >> chrootstart.sh
-declare -p pcimodules >> chrootstart.sh
-declare -p usbmodules >> chrootstart.sh
-declare -p IDEV >> chrootstart.sh
-declare -p BATTERYTOOLS >> chrootstart.sh
-declare -p ROOTEMAIL >> chrootstart.sh
-
-declare -f prebuild_setup >> chrootstart.sh
-declare -f initial_emerge >> chrootstart.sh
-declare -f initial_postemerge_setup >> chrootstart.sh
-declare -f up2date_emerge >> chrootstart.sh
-declare -f kernel_emerge >> chrootstart.sh
-declare -f set_kconfig >> chrootstart.sh
-declare -f set_kconfig_by_module >> chrootstart.sh
-declare -f get_kernel_config >> chrootstart.sh
-declare -f setup_grub >> chrootstart.sh
-declare -f make_kernel >> chrootstart.sh
-declare -f postkernel_emerge >> chrootstart.sh
-declare -f postbuild_configure >> chrootstart.sh
-cat >> chrootstart.sh << EOF
+  declare -p \
+    TIMEZONE NTPSERVER GHBASEURL \
+    APCUPSDTOOLS \
+    NVMETOOLS \
+    BATTERYTOOLS \
+    NVMEKERNEL pcimodules usbmodules \
+    IDEV ROOTEMAIL
+  declare -f \
+    prebuild_setup \
+    initial_emerge \
+    initial_postemerge_setup \
+    up2date_emerge \
+    kernel_emerge \
+    set_kconfig \
+    set_kconfig_by_module \
+    get_kernel_config \
+    setup_grub \
+    make_kernel \
+    postkernel_emerge \
+    postbuild_configure
+  cat << EOF
 set -x
 prebuild_setup
 initial_emerge
@@ -834,12 +829,12 @@ postbuild_configure
 EOF
 
 if (grep -q usegitportage /proc/cmdline); then
-declare -f use_git_portage >> chrootstart.sh
-echo "use_git_portage" >> chrootstart.sh
+    declare -f use_git_portage
+    echo "use_git_portage"
 fi
-chmod a+x chrootstart.sh
-
-time chroot . ./chrootstart.sh
+}
+generate_chroot_script > chrootstart.sh
+time chroot . /bin/bash chrootstart.sh
 rm chrootstart.sh
 # Delete temporary change to avoid insufficient free space, emerge job parallelism reduced
 sed -i 's/--jobs-tmpdir-require-free-gb=[0-9]\+ \?//g' $MAKECONF
