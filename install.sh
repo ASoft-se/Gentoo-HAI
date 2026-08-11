@@ -331,7 +331,8 @@ grep -qr sys-kernel/installkernel /etc/portage/package.use/ || echo sys-kernel/i
 
 initial_emerge() {
 wait
-time emerge -uvN1 -j8 --keep-going y portage curl net-misc/chrony gentoolkit cpuid2cpuflags pv || bash
+time emerge -uvN1 -j8 --keep-going y portage curl net-misc/chrony gentoolkit cpuid2cpuflags \
+  sys-apps/pv iproute2 app-arch/lz4 || bash
 }
 initial_postemerge_setup() {
 # prefetch some packages
@@ -347,14 +348,14 @@ echo "*/* $(cpuid2cpuflags)" > /etc/portage/package.use/00cpuflags
 
 up2date_emerge() {
 #start out with being up2date
-#we expect that this can fail
-time emerge -uvDN -j4 --keep-going y world --exclude gcc glibc --binpkg-respect-use=y
+#we expect that this can fail, but for up2date stage3 almost no builds other than cpuflag updates
+time emerge -uvDN -j8 --keep-going y @world --exclude gcc glibc --binpkg-respect-use=y
 etc-update --automode -5
 }
 
 kernel_emerge() {
 wait
-time emerge -uv -j8 app-arch/lz4 sys-kernel/installkernel dosfstools gentoo-sources pciutils usbutils iproute2 sys-apps/memtest86+ ${NVMETOOLS} || bash
+time emerge -uv -j8 sys-kernel/installkernel dosfstools gentoo-sources pciutils usbutils sys-apps/memtest86+ ${NVMETOOLS} || bash
 }
 
 set_kconfig() {
@@ -709,7 +710,7 @@ ls -lh /boot; find /boot/efi; efibootmgr
 }
 
 postkernel_emerge() {
-emerge -uv -j8 --keep-going y iptables nftables net-snmp dev-vcs/git ${APCUPSDTOOLS} iotop iftop ddrescue sys-apps/pv tcpdump nmap netkit-telnetd dmidecode hdparm \
+time emerge -uv -j8 --keep-going y iptables nftables net-snmp dev-vcs/git ${APCUPSDTOOLS} iotop iftop ddrescue tcpdump nmap netkit-telnetd dmidecode hdparm \
  mlocate postfix bind dhcp sys-apps/watchdog net-ftp/tftp-hpa dhcpcd app-misc/mc smartmontools syslog-ng virtual/cron logrotate lsof ${BATTERYTOOLS:=} || bash
 }
 
@@ -773,7 +774,7 @@ echo -e "*/30  *  * * *\troot\tchronyd -q -t 30 'server $NTPSERVER iburst' > /de
 
 use_git_portage() {
 # move to git based portage tree
-emerge -j2 app-eselect/eselect-repository
+time emerge -j2 app-eselect/eselect-repository
 umount /var/db/repos/gentoo
 rm -rf /var/db/snapshots
  # https://wiki.gentoo.org/wiki/Portage_with_Git
