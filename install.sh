@@ -693,11 +693,13 @@ chmod a+x /etc/grub.d/39_efitools
 grub-install --target=x86_64-efi --efi-directory=/boot/efi ${IDEV}
 grub-install --target=x86_64-efi --efi-directory=/boot/efi --removable ${IDEV}
 grub-install --target=i386-pc ${IDEV}
-grep -q console= /proc/cmdline && sed -i 's/ panic=30/ panic=30 console=tty0 console=ttyS0,115200/' /etc/default/grub
-grep -q console= /proc/cmdline && sed -i 's/^#GRUB_TERMINAL=.*/GRUB_TERMINAL="console serial"/' /etc/default/grub
-grep -q console= /proc/cmdline && echo 'GRUB_SERIAL_COMMAND="serial --speed=115200 --unit=0"' >> /etc/default/grub
-# enable serial in inittab
-grep -q console= /proc/cmdline && sed -i 's/^#s0:/s0:/' /etc/inittab
+  if grep -q console= /proc/cmdline; then
+    sed -i 's/ panic=30/ panic=30 console=tty0 console=ttyS0,115200/' /etc/default/grub
+    sed -i 's/^#GRUB_TERMINAL=.*/GRUB_TERMINAL="console serial"/' /etc/default/grub
+    echo 'GRUB_SERIAL_COMMAND="serial --speed=115200 --unit=0"' >> /etc/default/grub
+    # enable serial in inittab
+    sed -i 's/^#s0:/s0:/' /etc/inittab
+  fi
 }
 
 make_kernel() {
