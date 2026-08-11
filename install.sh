@@ -184,7 +184,7 @@ update_snapshot &
 FILE=$(curl -q $DISTBASE --output - | grep -o -E 'stage3-amd64-openrc-\w*\.tar\.xz' | sort -r | head -1)
 [ -z "$FILE" ] && echo -e "\e[91mNo stage3 found on $DISTBASE\e[0m" && exit 1
 echo -e "\e[93mdownload latest stage file $FILE\e[0m"
-curl -L -C - --remote-name-all --parallel-immediate --parallel \
+curl -L -C - --remote-name-all --parallel \
   $DISTBASE$FILE $DISTBASE$FILE.DIGESTS $DISTBASE$FILE.asc || bash
 
 gpg --homedir /etc/portage/gnupg --output $FILE.DIGESTS.verified --verify $FILE.DIGESTS && rm $FILE.DIGESTS
@@ -684,9 +684,10 @@ pushd /boot
 # create a dummy link
 ln -s vmlinuz-1.1 vmlinuz
 popd
-curl -L https://boot.ipxe.org/x86_64-efi/ipxe-legacy.efi -o /boot/efi/EFI/BOOT/ipxex64.efi
-curl -L https://raw.githubusercontent.com/tianocore/edk2-archive/refs/heads/master/ShellBinPkg/UefiShell/X64/Shell.efi -o /boot/efi/EFI/BOOT/shellx64.efi
-[ -f /etc/grub.d/39_efitools ] || curl -L ${GHBASEURL}/grub.d/39_efitools -o /etc/grub.d/39_efitools
+curl --parallel \
+    -L https://boot.ipxe.org/x86_64-efi/ipxe-legacy.efi -o /boot/efi/EFI/BOOT/ipxex64.efi \
+    -L https://raw.githubusercontent.com/tianocore/edk2-archive/refs/heads/master/ShellBinPkg/UefiShell/X64/Shell.efi -o /boot/efi/EFI/BOOT/shellx64.efi \
+    $( [ -f /etc/grub.d/39_efitools ] || echo "-L ${GHBASEURL}/grub.d/39_efitools -o /etc/grub.d/39_efitools" )
 sha512sum -c <<<"cae63738889e626906270c6ad853970340d83044363680db97a70fdc8b6ec7960ba9ea7553afaf79bd8b64a61800ecf782742509e9e84d1c60b1e1e6de9d5346  /etc/grub.d/39_efitools" || bash
 chmod a+x /etc/grub.d/39_efitools
 grub-install --target=x86_64-efi --efi-directory=/boot/efi ${IDEV}
