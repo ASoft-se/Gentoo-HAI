@@ -34,11 +34,70 @@ ROOTEMAIL=${ROOTEMAIL:-root@asoft.se}
 SET_PASS=${SET_PASS:-password}
 HAIHOSTNAME=${HAIHOSTNAME:-$(hostname)}
 
-NVMETOOLS=
+# Packages that is used by script or init, oneshot installs
+PACKAGES_INIT=(
+    sys-apps/portage
+    net-misc/curl
+    net-misc/chrony
+    app-portage/gentoolkit
+    cpuid2cpuflags
+    sys-apps/pv
+    sys-apps/iproute2
+    app-arch/lz4
+)
+PACKAGES_PREFETCH=(
+    sys-kernel/gentoo-sources
+    sys-kernel/installkernel
+    sys-apps/pciutils
+)
+# Packages for kernel
+PACKAGES_KRNL=(
+    "${PACKAGES_PREFETCH[@]}"
+    sys-fs/dosfstools
+    sys-apps/usbutils
+    sys-apps/memtest86+
+)
+# some packages to prefetch, not part of KRNL emerge
+PACKAGES_PREFETCH+=(
+    dev-vcs/git
+    app-admin/syslog-ng
+    net-misc/dhcp
+    net-analyzer/net-snmp
+    net-analyzer/nmap
+)
+# Other packages to install before reboot
+PACKAGES_POST=(
+    net-firewall/iptables
+    net-firewall/nftables
+    net-analyzer/net-snmp
+    dev-vcs/git
+    sys-process/iotop
+    net-analyzer/iftop
+    sys-fs/ddrescue
+    net-analyzer/tcpdump
+    net-analyzer/nmap
+    net-misc/netkit-telnetd
+    sys-apps/dmidecode
+    sys-apps/hdparm
+    sys-apps/mlocate
+    mail-mta/postfix
+    net-dns/bind
+    net-misc/dhcp
+    sys-apps/watchdog
+    net-ftp/tftp-hpa
+    net-misc/dhcpcd
+    app-misc/mc
+    sys-apps/smartmontools
+    app-admin/syslog-ng
+    virtual/cron
+    app-admin/logrotate
+    sys-process/lsof
+)
+
 NVMEKERNEL=
 if [ -b /dev/nvme0n1 ]; then
   IDEV=${IDEV:-/dev/nvme0n1}
-  NVMETOOLS=sys-apps/nvme-cli
+  PACKAGES_KRNL+=( sys-apps/nvme-cli )
   NVMEKERNEL=CONFIG_BLK_DEV_NVME=y
 fi
 [[ -b /dev/vda ]] && [[ ! -b /dev/sda ]] && IDEV=${IDEV:-/dev/vda}
@@ -62,17 +121,15 @@ pid_ntp=$!
 
 [ -d /sys/firmware/efi ] && PLATFORM=efi || PLATFORM=pcbios
 
-APCUPSDTOOLS=
 find /sys/devices/ -name "idVendor" -exec grep -l "051d" {} + | while read f; do
     echo we have an APC device, probably UPS add apcupsd
     cat "$(dirname "$f")/manufacturer" "$(dirname "$f")/product"
-    APCUPSDTOOLS=apcupsd
+    PACKAGES_POST+=( apcupsd )
 done
 
-BATTERYTOOLS=
 BATTERYDEV=$(grep -l "Battery" /sys/class/power_supply/*/type)
 if [[ -n "${BATTERYDEV}" ]]; then
-    BATTERYTOOLS=sys-power/acpi
+    PACKAGES_POST+=( sys-power/acpi )
 fi
 
 partition_format_mount() {
@@ -319,7 +376,7 @@ touch /var/db/ntp-kod &
 [ -f /etc/portage/package.mask/gentoo.conf ] || cp /usr/share/portage/config/repos.conf /etc/portage/repos.conf/gentoo.conf
 ln -fs /usr/share/zoneinfo/$TIMEZONE /etc/localtime
 
-if [[ -n "${APCUPSDTOOLS}" ]]; then
+if grep -q apcupsd <<< "${PACKAGES_POST[*]}"; then
     #snmp support in current apcupsd is buggy
     grep -qr sys-power/apcupsd /etc/portage/package.use/ || echo sys-power/apcupsd -snmp >> /etc/portage/package.use/apcupsd &
     # apcupsd requires wall which is included in util-linux iif tty-helpers is set
@@ -329,17 +386,15 @@ echo app-admin/syslog-ng -snmp >> /etc/portage/package.use/syslog-ng &
 grep -qr net-firewall/nftables /etc/portage/package.use/ || echo net-firewall/nftables json python xtables >> /etc/portage/package.use/nftables &
 grep -qr net-analyzer/net-snmp /etc/portage/package.use/ || echo net-analyzer/net-snmp lm-sensors >> /etc/portage/package.use/net-snmp &
 grep -qr sys-kernel/installkernel /etc/portage/package.use/ || echo sys-kernel/installkernel grub >> /etc/portage/package.use/grub &
-[[ -n "${NVMETOOLS}" ]] && (grep -qr nvme /etc/portage/package.accept_keywords/ || echo ${NVMETOOLS} > /etc/portage/package.accept_keywords/nvme) &
+grep -q nvme-cli <<< "${PACKAGES_KRNL[*]}" && echo sys-apps/nvme-cli > /etc/portage/package.accept_keywords/nvme &
 }
 
 initial_emerge() {
 wait
-time emerge -uvN1 -j8 --keep-going y portage curl net-misc/chrony gentoolkit cpuid2cpuflags \
-  sys-apps/pv iproute2 app-arch/lz4 || bash
+time emerge -uvN1 -j8 --keep-going y "${PACKAGES_INIT[@]}" || bash
 }
 initial_postemerge_setup() {
-# prefetch some packages
-emerge -fq pciutils gentoo-sources grub > /dev/null &
+emerge -fq "${PACKAGES_PREFETCH[@]}" > /dev/null &
 chronyd -q -t 60 <<< "
 server $NTPSERVER iburst maxsamples 1
 makestep 0.1 -1
@@ -352,13 +407,13 @@ echo "*/* $(cpuid2cpuflags)" > /etc/portage/package.use/00cpuflags
 up2date_emerge() {
 #start out with being up2date
 #we expect that this can fail, but for up2date stage3 almost no builds other than cpuflag updates
-time emerge -uvDN -j8 --keep-going y @world --exclude gcc glibc --binpkg-respect-use=y
+time emerge -uvDN1 -j8 --keep-going y @world --exclude gcc glibc --binpkg-respect-use=y
 etc-update --automode -5
 }
 
 kernel_emerge() {
 wait
-time emerge -uv -j8 sys-kernel/installkernel dosfstools gentoo-sources pciutils usbutils sys-apps/memtest86+ ${NVMETOOLS} || bash
+time emerge -uv -j8 "${PACKAGES_KRNL[@]}" || bash
 }
 
 set_kconfig() {
@@ -719,8 +774,7 @@ ls -lh /boot; find /boot/efi; efibootmgr
 }
 
 postkernel_emerge() {
-time emerge -uv -j8 --keep-going y iptables nftables net-snmp dev-vcs/git ${APCUPSDTOOLS} iotop iftop ddrescue tcpdump nmap netkit-telnetd dmidecode hdparm \
- mlocate postfix bind dhcp sys-apps/watchdog net-ftp/tftp-hpa dhcpcd app-misc/mc smartmontools syslog-ng virtual/cron logrotate lsof ${BATTERYTOOLS:=} || bash
+time emerge -uv -j8 --keep-going y "${PACKAGES_POST[@]}" || bash
 }
 
 postbuild_configure() {
@@ -775,7 +829,7 @@ echo -e "*/30  *  * * *\troot\tchronyd -q -t 30 'server $NTPSERVER iburst' > /de
 # some variants of cron needs to have default cron installed
 #crontab /etc/crontab
 
-[[ -n "${APCUPSDTOOLS}" ]] && rc-update add apcupsd default && rc-update add apcupsd.powerfail shutdown
+[[ -f /etc/init.d/apcupsd ]] && rc-update add apcupsd default && rc-update add apcupsd.powerfail shutdown
 #todo configure snmp and add to startup
 
 #todo... if vmware emerge open-vm-tools?
@@ -801,9 +855,7 @@ echo "root:${SET_PASS}" | chpasswd -c BCRYPT
 EOF
   declare -p \
     TIMEZONE NTPSERVER GHBASEURL \
-    APCUPSDTOOLS \
-    NVMETOOLS \
-    BATTERYTOOLS \
+    PACKAGES_INIT PACKAGES_PREFETCH PACKAGES_KRNL PACKAGES_POST \
     NVMEKERNEL pcimodules usbmodules \
     IDEV ROOTEMAIL
   declare -f \
