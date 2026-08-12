@@ -13,6 +13,7 @@
 #
 
 # Make sure our root mountpoint exists
+esca=$(echo -e "\e[")
 mkdir -p /mnt/gentoo
 
 # Parse /proc/cmdline
@@ -177,31 +178,32 @@ mkdir -p /etc/portage/gnupg; chown -R root:root /etc/portage/gnupg; chmod 700 /e
 vardb=/mnt/gentoo/var/db
 . ./portagehelper.sh || bash
 DISTBASE=${DISTMIRROR}/releases/amd64/autobuilds/current-stage3-amd64-openrc/
-ensure_key_and_snap_source || bash
-
 mkdir -p $pathrepo $pathsnapshots
-update_snapshot &
+{ { set +x; } 2>/dev/null
+  echo "+ ensure_key_and_snap_source" >&2; ensure_key_and_snap_source || bash
+  update_snapshot &
+  set -x
+}
 
 FILE=$(curl -q $DISTBASE --output - | grep -o -E 'stage3-amd64-openrc-\w*\.tar\.xz' | sort -r | head -1)
-[ -z "$FILE" ] && echo -e "\e[91mNo stage3 found on $DISTBASE\e[0m" && exit 1
-echo -e "\e[93mdownload latest stage file $FILE\e[0m"
+[ -z "$FILE" ] && cat <<< "${esca}91mNo stage3 found on $DISTBASE${esca}0m" && exit 1
+cat <<< "${esca}93mdownload latest stage file $FILE${esca}0m"
 curl -L -C - --remote-name-all --parallel \
   $DISTBASE$FILE $DISTBASE$FILE.DIGESTS $DISTBASE$FILE.asc || bash
 
 gpg --homedir /etc/portage/gnupg --output $FILE.DIGESTS.verified --verify $FILE.DIGESTS && rm $FILE.DIGESTS
 gpg --homedir /etc/portage/gnupg --verify $FILE.asc || bash
-echo "Verifying stage3 SHA512 ..."
+cat <<< "Verifying stage3 SHA512 ..."
 # grab SHA512 lines and line after, then filter out line that ends with iso
-echo "$(grep -A1 SHA512 $FILE.DIGESTS.verified | grep $FILE\$)" | sha512sum -c || bash
-echo -e "- \e[92mAwesome!\e[0m stage3 verification looks good."
-rm $FILE.DIGESTS.verified
-rm $FILE.asc
+sha512sum -c <<< "$(grep -A1 SHA512 $FILE.DIGESTS.verified | grep $FILE\$)" || bash
+cat <<< "- ${esca}92mAwesome!${esca}0m stage3 verification looks good."
+rm $FILE.DIGESTS.verified $FILE.asc
 time tar xpf $FILE --xattrs-include='*.*' --numeric-owner && rm $FILE
 
 wait || exit 1
 cp -rp /etc/portage/gnupg etc/portage
 rm -f etc/portage/gnupg/.getuto.last
-mount_current_snapshot || bash
+( { set +x; } 2>/dev/null; echo "+ mount_current_snapshot" >&2; mount_current_snapshot || bash)
 cp /etc/resolv.conf etc
 # make sure we are done with root unpack...
 
