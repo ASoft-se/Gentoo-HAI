@@ -1,27 +1,47 @@
 #!/bin/bash
+set -euo pipefail
 DISTMIRROR=http://distfiles.gentoo.org
 DISTBASE=${DISTMIRROR}/releases/amd64/autobuilds/current-install-amd64-minimal/
-FILE=$(wget -q $DISTBASE -O - | grep -o -e "install-amd64-minimal-\w*.iso" | sort -r | head -1)
+TRUSTKEY=${TRUSTKEY:-ABD00913019D6354BA1D9A132839FE0D796198B1}
 
-curl -L -C - --remote-name-all $DISTBASE$FILE $DISTBASE$FILE.DIGESTS $DISTBASE$FILE.asc || exit 2
+GPGHOME=
+[[ -d /etc/portage/gnupg ]] && getuto || true
+[[ -d /etc/portage/gnupg ]] && GPGHOME="--homedir /etc/portage/gnupg --no-permission-warning --lock-never --no-random-seed-file --no-auto-key-retrieve --no-auto-check-trustdb"
 
-# https://wiki.gentoo.org/wiki/Handbook:AMD64/Installation/Media#Linux_based_verification
-#wget -O- https://gentoo.org/.well-known/openpgpkey/hu/wtktzo4gyuhzu8a4z5fdj3fgmr1u6tob?l=releng | gpg --import
-# slow:
-#gpg --keyserver hkps://keys.gentoo.org --recv-keys 0xBB572E0E2D182910
+ensure_key_and_minimal() {
+  #https://github.com/ASoft-se/Gentoo-HAI/issues/72#issuecomment-2294998781
+  curl -L -C - --remote-name-all --parallel \
+    https://qa-reports.gentoo.org/output/service-keys.gpg \
+    ${DISTBASE}latest-install-amd64-minimal.txt || return 1
 
+  # https://wiki.gentoo.org/wiki/Handbook:AMD64/Installation/Media#Linux_based_verification
+  # gpg import, trust starting with Gentoo L1 signing key
+  gpg $GPGHOME --locate-key releng@gentoo.org || \
+  gpg $GPGHOME -q \
+    --trusted-key $TRUSTKEY \
+    --import service-keys.gpg && rm service-keys.gpg || true
+
+  FILE=$(gpg $GPGHOME \
+    -o- \
+    --verify latest-install-amd64-minimal.txt | grep -v '^#' | awk '{print $1}') \
+    && rm latest-install-amd64-minimal.txt || return 1
+}
 # Download key if missing
-gpg --locate-key releng@gentoo.org
-# Verify DIGESTS
-gpg --verify $FILE.DIGESTS || exit 2
-gpg --verify $FILE.asc || exit 2
+ensure_key_and_minimal
 
-echo "Verifying SHA512 ..."
-# grab SHA512 lines and line after, then filter out line that ends with iso
-echo "$(grep -A1 SHA512 $FILE.DIGESTS | grep iso$)" | sha512sum -c || exit 2
-echo "Verifying BLAKE2 ..."
-# grab BLAK2 lines and line after, then filter out line that ends with iso
-blake2line=$(grep -A1 BLAKE2 $FILE.DIGESTS | grep iso$)
-# remove /var/tmp*.../ part of filename
-echo "${blake2line/\/*\//}" | b2sum -c || exit 2
+curl -L -C - --parallel --remote-name-all $DISTBASE$FILE $DISTBASE$FILE.DIGESTS $DISTBASE$FILE.asc || exit 2
+
+# Verify DIGESTS
+gpg $GPGHOME --verify $FILE.asc || exit 2
+gpg $GPGHOME -o- --verify $FILE.DIGESTS | grep -B1 "iso$" | while read -r line; do
+  if [[ "$line" =~ "# SHA512" ]]; then
+    echo -n "Verifying $line ... "
+    read -r hash_line && sha512sum -c <<< "$hash_line" || exit 2
+  elif [[ "$line" =~ "# BLAKE2" ]]; then
+    echo -n "Verifying $line ... "
+    read -r hash_line && b2sum -c <<< "$hash_line" || exit 2
+  else
+    echo "Unknown $line"
+  fi
+done
 echo " - Awesome! everything looks good."
