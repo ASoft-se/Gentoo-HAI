@@ -3,3 +3,4 @@
 *.iso.asc
 *.qcow2
 kvm_lxgentootest*
+pxe/*

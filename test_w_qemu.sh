@@ -14,6 +14,7 @@ USEEFI=""
 VNC="-vnc [::1]:22 -k sv"
 VGA=""
 efibios=""
+bootfile="pxe/autoexec.ipxe"
 memorygb=2
 POSITIONAL=()
 while (($#)); do
@@ -43,6 +44,8 @@ netscript="
     cp /usr/share/edk2-ovmf/OVMF_VARS.fd kvm_lxgentootest_VARS.fd
     efibios="-drive if=pflash,unit=0,format=raw,readonly=on,file=/usr/share/edk2-ovmf/OVMF_CODE.fd \
       -drive if=pflash,unit=1,format=raw,file=kvm_lxgentootest_VARS.fd"
+    [ -f pxe/ipxe.efi ] || (wget https://boot.ipxe.org/x86_64-efi/ipxe-legacy.efi && mv ipxe-legacy.efi pxe/ipxe.efi)
+    bootfile=pxe/ipxe.efi
   ;;
   usenvme)
     disktype="-device nvme,drive=d1,id=nvme1,serial=nonoptionalsn001"
@@ -85,7 +88,7 @@ set -- "${POSITIONAL[@]}" # restore positional parameters
 
 [[ "$VNC" != "" ]] && (sleep 3; vncviewer :22) &
 
-: "${netscript:=-nic user,model=virtio,hostfwd=tcp::2222-:22,tftp=.}"
+: "${netscript:=-nic user,model=virtio,hostfwd=tcp::2222-:22,tftp=.,bootfile=$bootfile}"
 
 set -x
 jn=$(($(nproc)/2))
