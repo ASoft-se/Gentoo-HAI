@@ -14,17 +14,16 @@ Please check the script for settings and optimizions that can be done.
 
 * `list_latest.sh`		Grab name of latest iso and stage3
 * `get_minimal_cd.sh`		Download and verify latest minimal livecd
-* `gentoocd_unpack.sh`		Unpacks and modifies livecd, adding auto run install script on boot/logon
-* `gentoo_cd_bashrc_addon`/`gentoo_cdupdate.sh`		Added to modified livecd by gentoocd_unpack, runs on logon
+* `gentoocd_unpack.sh`		Unpacks and creates .ipxe script for testing
+* cdhelpers / `gentoo_cd_bashrc_addon` and `cdupdate.sh`		Added to modified livecd by gentoocd_unpack, runs on logon (genkernel cds)
+* `updates/root/.bashrc`		Injected and runs at login (Dracut) replaces `gentoo_cd_bashrc_addon`
 
 * `install.sh`			Main Installation script
 * `test_w_qemu.sh`		Virtual test machine helper, see script for some additional setup instructions and information
 
-Run `sh get_minimal_cd.sh` to download latest `install-amd64-minimal-*.iso`.
-Run `sh gentoocd_unpack.sh` (unfortunatly requests root) to unpack iso and create `install-amd64-mod.iso`
+Run `./gentoocd_unpack.sh` to unpack parts of iso (follow will tell what to do if no .iso is found)
 It adds script to cd start that runs the install automatically.
 
 ### To make testing simple
-Give `sh gentoo_cdupdate.sh auto useefi usenvme` a try if you want to test things out in a vm.
-It will use `test_w_qemu.sh` to start qemu, Disk image is auto created if it does not already exist.
+For testing, give `rm kvm_lxgentootest.qcow2; time sh test_w_qemu.sh auto useefi usenvme` a try.
 When testing disk images will be recrated, so copy them to a safe place if you want to keep them.

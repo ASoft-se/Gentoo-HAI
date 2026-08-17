@@ -1,12 +1,13 @@
 #!/bin/bash
+declare -- nl=$'\n'
 set -euo pipefail
 # Needed packages for grub-mkrescue emerge -uv1 sys-fs/mtools dev-libs/libisoburn app-cdr/cdrtools
 # check for iso before asking for root
-ebegin() { echo $* ...; }
-eerror() { echo ERROR: $*; }
-einfo() { echo $*; }
+ebegin() { echo -e $* ...; }
+eerror() { echo -e ERROR: $*; }
+einfo() { echo -e $*; }
 # Always verify script without this source after changes
-[[ -f /lib/gentoo/functions.sh ]] && source /lib/gentoo/functions.sh
+#[[ -f /lib/gentoo/functions.sh ]] && source /lib/gentoo/functions.sh
 
 find_and_extractiso() {
 srciso=install-amd64-minimal-*.iso
@@ -14,7 +15,7 @@ for f in $srciso; do
   if [[ ! -e "$f" ]]; then
     eerror "Matching minimal iso not found:"
     echo "   $f"
-    echo " please run get_minimal_cd.sh to fetch latest version"
+    echo " please run get_minimal_cd.sh (from https://github.com/NiKiZe/Gentoo-iPXE/blob/main/get_minimal_cd.sh) to fetch latest version"
     exit 1
   fi
   isoname=$f
@@ -31,37 +32,74 @@ isoinfo -j UTF-8 -R -i ../${isoname} -X -find -path /image.squashfs && mv -vf im
 isoinfo -j UTF-8 -R -i ../${isoname} -X -find -path /boot/gentoo && mv -vf boot/gentoo ../pxe
 isoinfo -j UTF-8 -R -i ../${isoname} -X -find -path /boot/gentoo.igz && mv -vf boot/gentoo.igz ../pxe
 popd; rm -rf isoextract
-grubkernel=$(isoinfo -j UTF-8 -R -i ${isoname} -x /boot/grub/grub.cfg | grep "linux /boot" | grep -v docache)
-set +x
-[[ -z "$grubkernel" ]] && eerror "No kernel info from grub.cfg found"
 
+grubkernel=$(isoinfo -j UTF-8 -R -i ${isoname} -x /boot/grub/grub.cfg | grep "linux /boot" | grep -v \
+ -e docache \
+ -e "rd.live.ram=1" \
+ -e dospeakup)
+
+set +x
+echo " ... extraction done"
+[[ -z "$grubkernel" ]] && eerror "No kernel info from grub.cfg found"
 kernel=${grubkernel#*/boot/gentoo }
-einfo "Official kernel cmdline:\n     $kernel"
+sqfs_ext=
+isomode=genkernel
+if [[ "$grubkernel" == *"root=live:"* ]]; then
+    einfo "Dracut-based ISO detected. Applying live image modifications."
+    kernel=$(sed 's#root=live:[^ ]*#root=live:/image.squashfs.img#' <<< "${kernel}")
+    sqfs_ext=".img"
+    isomode=dracut
+fi
+einfo "Official kernel cmdline:$nl     $kernel"
 #kernel=${kernel/dokeymap/\$\{keymap\}}
-for i in *.ipxe; do
-  ipxekernel=$(grep "kernel gentoo " "$i" | sed "s/^.*kernel gentoo /gentoo /")
-  einfo "Checking for cmdline in $i:\n     $ipxekernel"
-  grep -q "$kernel" "$i" && echo " - Looks good" || echo " - Might need update"
-done
-cat > pxe/autoexec.ipxe << EOF
+generate_ipxescript > pxe/boot.ipxe
+update_cmdline pxe/boot.ipxe
+echo "EXAMPLE: rm kvm_lxgentootest.qcow2; time sh test_w_qemu.sh auto useefi usenvme"
+}
+generate_ipxescript() {
+cat << EOF
 #!ipxe
 ifopen
 
 kernel gentoo $kernel
 
 initrd gentoo.igz
-initrd image.squashfs /image.squashfs
-initrd ../cdhelpers/cdupdate.sh /cdupdate.sh mode=755
-initrd ../cdhelpers/gentoo_cd_bashrc_addon /gentoo_cd_bashrc_addon
-initrd ../install.sh /g-install.sh mode=755
-initrd ../portagehelper.sh /portagehelper.sh mode=755
+initrd image.squashfs /image.squashfs$sqfs_ext
+EOF
+if [[ $isomode == dracut ]]; then
+  declare -A covered_dirs
+  # directories covered by the static lines and has mkdir
+  covered_dirs["/updates"]=1
+  covered_dirs["/updates/root"]=1
+  echo "initrd ../install.sh /updates/root/g-install.sh mkdir=2 mode=755"
+  echo "initrd ../portagehelper.sh /updates/root/portagehelper.sh mode=755"
+  find "updates" -type f -print0 | while IFS= read -r -d '' f; do
+    [[ -f "$f" ]] || continue
+    dir="${f%/*}"
+    IFS='/' read -r -a segments <<< "$dir"
+    current_path=""
+    depth=0
+    for segment in "${segments[@]}"; do
+      current_path="$current_path/$segment"
+      if ! [[ -v "covered_dirs[$current_path]" ]]; then
+        (( ++depth ))
+        covered_dirs[$current_path]=1
+      fi
+    done
 
+    echo "initrd ../${f} /${f} mkdir=$depth mode=$(stat -c "%a" "$f")"
+  done
+else
+  echo "initrd ../install.sh /g-install.sh mode=755"
+  for f in "cdhelpers"/* portagehelper.sh; do
+    [[ -f "$f" ]] || continue
+    echo "initrd ../${f} /$(basename "$f") mode=$(stat -c "%a" "$f")"
+  done
+fi
+cat << EOF
 imgstat
-
 boot
 EOF
-update_cmdline pxe/autoexec.ipxe
-echo "EXAMPLE: rm kvm_lxgentootest.qcow2; time sh test_w_qemu.sh auto useefi usenvme"
 }
 update_cmdline() {
   bootfile=$1
