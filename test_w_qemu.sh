@@ -48,6 +48,7 @@ netscript="
     cp /usr/share/edk2-ovmf/OVMF_VARS.fd kvm_lxgentootest_VARS.fd
     efibios="-drive if=pflash,unit=0,format=raw,readonly=on,file=/usr/share/edk2-ovmf/OVMF_CODE.fd \
       -drive if=pflash,unit=1,format=raw,file=kvm_lxgentootest_VARS.fd"
+    [[ -d pxe ]] || mkdir -p pxe
     cp $bootfile pxe/autoexec.ipxe
     [ -f pxe/ipxe.efi ] || (wget https://boot.ipxe.org/x86_64-efi/ipxe-legacy.efi && mv ipxe-legacy.efi pxe/ipxe.efi)
     bootfile=pxe/ipxe.efi
@@ -96,6 +97,7 @@ set -- "${POSITIONAL[@]}" # restore positional parameters
 [[ "$VNC" != "" ]] && (sleep 3; vncviewer :22) &
 if [[ -z "$VNC" ]]; then
   # if serial make sure autoexec.ipxe is set for serial console
+  [[ -d pxe ]] || mkdir -p pxe
   [[ "$USEEFI" != "YES" ]] && cp $bootfile pxe/autoexec.ipxe && bootfile="pxe/autoexec.ipxe"
   sed -i 's/ cdroot/ cdroot console=ttyS0,115200/' pxe/autoexec.ipxe
 fi

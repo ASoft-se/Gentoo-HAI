@@ -1,0 +1,207 @@
+name: Check and verify Stage3 builds
+
+on:
+  schedule:
+    - cron: '45 15-20 * * 0'
+    - cron: '55 */6 * * *'
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  CACHE_PATHS: |
+    pxe/ipxe.efi
+    pxe/online_boot.ipxe
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    outputs:
+      latest_version: ${{ steps.get-version.outputs.version }}
+      tag_exists: ${{ steps.check-tag.outputs.exists }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Determine Latest Gentoo Version
+        id: get-version
+        run: |
+          . ./list_latest.sh
+          VERSION="${FILE_STAGE3%.tar.xz}"
+          echo "LATEST_VERSION=$VERSION" >> $GITHUB_ENV
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Check if Git Tag Already Exists
+        id: check-tag
+        run: |
+          if git rev-parse "refs/tags/${{ env.LATEST_VERSION }}" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "TAG_EXISTS=true" >> $GITHUB_ENV
+            echo "Version ${{ env.LATEST_VERSION }} has already been tagged and released."
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "TAG_EXISTS=false" >> $GITHUB_ENV
+          fi
+
+      - name: ROM Cache
+        if: env.TAG_EXISTS == 'false'
+        id: ipxe-rom
+        uses: actions/cache@v6
+        with:
+          path: pxe
+          key: ipxe-rom
+
+      - name: Get working version of iPXE pcbios ROM
+        if: env.TAG_EXISTS == 'false' && steps.ipxe-rom.outputs.cache-hit != 'true'
+        run: |
+          sudo apt update && sudo apt install git make gcc binutils perl liblzma-dev mtools
+          git clone --depth 1 https://github.com/ipxe/ipxe.git
+          mkdir -p pxe
+          cd ipxe
+          echo "#define DOWNLOAD_PROTO_HTTPS" >> src/config/local/general.h
+          make -C src \
+            bin/virtio-net.rom \
+            bin/virtio-net.pxe \
+            bin-x86_64-efi/ipxe-legacy.efi -j4
+          cp src/bin/virtio-net.rom ../pxe
+          cp src/bin/virtio-net.pxe ../pxe
+          cp src/bin-x86_64-efi/ipxe-legacy.efi ../pxe/ipxe.efi
+
+  test:
+    runs-on: ubuntu-latest
+    needs: generate
+    if: needs.generate.outputs.tag_exists == 'false'
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [pcbios, efi]
+        include:
+          - mode: pcbios
+            run_args: ""
+          - mode: efi
+            run_args: "useefi usenvme"
+
+    name: Test VM (${{ matrix.mode }})
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+
+      - name: ROM Cache
+        uses: actions/cache@v6
+        with:
+          fail-on-cache-miss: true
+          path: pxe
+          key: ipxe-rom
+
+      - name: Initialize QEMU and System Dependencies
+        run: |
+          sudo apt update && sudo apt install -y qemu-system-x86 ovmf
+          sudo chmod 666 /dev/kvm
+          # in pcbios mode we override the rom used (q35 machine), ignoring efi since it is throwaway
+          #strace -e trace=openat qemu-system-x86_64 -enable-kvm -M q35 -m 256 -nographic -nic user,model=virtio,tftp=.,bootfile=notthisfile.ipxe 2>&1 | grep -E "virtio|rom"
+          [[ "${{ matrix.mode }}" == "pcbios" ]] && sudo cp pxe/virtio-net.rom /usr/lib/ipxe/qemu/efi-virtio.rom
+
+          [[ "${{ matrix.mode }}" == "efi" ]] && sudo ln -s /usr/share/OVMF /usr/share/edk2-ovmf || true
+          [[ "${{ matrix.mode }}" == "efi" ]] && sudo ln -s /usr/share/edk2-ovmf/OVMF_CODE_4M.fd /usr/share/edk2-ovmf/OVMF_CODE.fd || true
+          [[ "${{ matrix.mode }}" == "efi" ]] && sudo ln -s /usr/share/edk2-ovmf/OVMF_VARS_4M.fd /usr/share/edk2-ovmf/OVMF_VARS.fd || true
+
+      - name: Restore Work Directory Cache
+        uses: actions/cache@v6
+        with:
+          path: ${{ env.CACHE_PATHS }}
+          key: gentoo-ipxe-${{ needs.generate.outputs.latest_version }}
+
+      - name: Execute VM
+        run: |
+          export LOGPFX="${{ matrix.mode }}"
+          export RUNOPTS="${{ matrix.run_args }}"
+          ./run_test_published_auto.sh
+
+      - name: Upload Run Artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: vmrun-${{ matrix.mode }}
+          if-no-files-found: error
+          path: |
+            run_full.log
+            run_metadata.txt
+            run_vars.sh
+
+  publish-release:
+    runs-on: ubuntu-latest
+    needs: [generate, test]
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Download All Run Artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: vmrun-*
+          path: vmruns/
+
+      - name: Create Release
+        run: |
+          VERSION="${{ needs.generate.outputs.latest_version }}"
+          echo "Tagging repository and creating release: $VERSION"
+          ls -l vmruns vmruns/*
+
+          grep "" vmruns/*/run*txt vmruns/*/run_vars.sh
+          RELEASE_FILES=()
+          ASSETS=(vmruns/*/{run_metadata.txt,run_vars.sh,run_full.log})
+          for asset in "${ASSETS[@]}"; do
+            [[ -f "$asset" ]] || continue
+            RUN_ID=$(basename "$(dirname "$asset")")
+            FILE_ID=$(basename "$asset")
+
+            case "$FILE_ID" in
+              "run_metadata.txt")
+                printf "\n## %s - %s\n" "$RUN_ID" "$FILE_ID" >> "$GITHUB_STEP_SUMMARY"
+                cat "$asset" >> "$GITHUB_STEP_SUMMARY"
+                printf "\n" >> "$GITHUB_STEP_SUMMARY"
+                ;;
+              "run_vars.sh")
+                printf "\n## \xE2\x9A\x99 %s - %s\n" "$RUN_ID" "$FILE_ID" >> "$GITHUB_STEP_SUMMARY"
+                echo '```bash' >> "$GITHUB_STEP_SUMMARY"
+                cat $asset >> "$GITHUB_STEP_SUMMARY"
+                echo '```' >> "$GITHUB_STEP_SUMMARY"
+                ;;
+            esac
+
+            STAGE_PATH="vmruns/${RUN_ID}_${FILE_ID}"
+            cp "$asset" "$STAGE_PATH"
+            RELEASE_FILES+=("$STAGE_PATH")
+          done
+
+          for var_file in vmruns/*/run_vars.sh; do
+            [[ -f "$var_file" ]] || exit 1
+            source "$var_file"
+            CLEAN_STAGE3="${STAGE3%.tar.xz}"
+            if [[ "$CLEAN_STAGE3" != "$VERSION" ]]; then
+              echo "❌ Stage3 mismatch in $var_file ($CLEAN_STAGE3 != $VERSION)" >&2
+              exit 1
+            fi
+          done
+          diff vmruns/*/run_vars.sh || { echo "❌ Run missmatch"; exit 1; }
+
+          RELEASE_NOTES="release_notes.md"
+          cat << EOF > "$RELEASE_NOTES"
+          ## Install from $VERSION
+          * **🌐 iPXE:** \`$IPXE\`
+          * **💿 Media:** \`$CDVERSION\`
+          * **📦 Stage:** \`$STAGE3\`
+          * **📸 Snapshot:** \`$SNAPSHOT\`
+          * **🐧 Kernel:** \`$KERNEL\`
+          EOF
+
+          set -x
+          cat "$RELEASE_NOTES" | tee -a "$GITHUB_STEP_SUMMARY"
+          ls -l "${RELEASE_FILES[@]}"
+          gh release create "$VERSION" "${RELEASE_FILES[@]}" \
+            --repo "${{ github.repository }}" \
+            --title "$VERSION" \
+            --notes-file "$RELEASE_NOTES"
