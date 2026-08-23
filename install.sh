@@ -297,8 +297,8 @@ MAKECONF=etc/portage/make.conf
 echo >> $MAKECONF
 echo "# add valid -march= to CFLAGS" >> $MAKECONF
 echo "MAKEOPTS=\"-j$(nproc)\"" >> $MAKECONF
-echo "EMERGE_DEFAULT_OPTS=\"\${EMERGE_DEFAULT_OPTS} --getbinpkg --jobs-tmpdir-require-free-gb=1\"" >> $MAKECONF
-echo "FEATURES=\"parallel-fetch buildpkg\"" >> $MAKECONF
+echo "EMERGE_DEFAULT_OPTS=\"\${EMERGE_DEFAULT_OPTS} --getbinpkg --jobs-tmpdir-require-free-gb=0\"" >> $MAKECONF
+echo "FEATURES=\"parallel-fetch buildpkg parallel-install -ebuild-locks\"" >> $MAKECONF
 echo "USE=\"\${USE} -X iproute2 logrotate snmp\"" >> $MAKECONF
 
 grep -q autoinstall /proc/cmdline || nano $MAKECONF
@@ -349,6 +349,7 @@ usbmodules=$(usb-devices | grep -i "Driver=" | sed 's/.*iver=//' | tr '_,[:upper
 
 prebuild_setup() {
 mount /var/tmp
+mount /var/tmp -o remount,size=$(awk '/^(MemTotal|SwapTotal):/ {sum+=$2} END {printf "%.0fM", sum/1024}' /proc/meminfo)
 
 vardb=/var/db
 . ./portagehelper.sh || bash
