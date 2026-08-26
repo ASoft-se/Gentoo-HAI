@@ -764,8 +764,8 @@ grub-install --target=i386-pc ${IDEV}
 make_kernel() {
 # 6000 is rough estimate of how many lines we usually get for a compile --dry-run unfortunatly failed
   time (
-    pv -lbtpef -s $(bc <<< "scale=0; ($(grep -c "=[ym]" .config) * 28) / 10") > /dev/null < <(make -j$(($(nproc)*2)) bzImage modules) && \
-    pv -lbtpef -s $((6+$(find -name "*.ko" | wc -l))) > /dev/null < <(make -j2 modules_install install)
+    pv -lbtpefX -s $(bc <<< "scale=0; ($(grep -c "=[ym]" .config) * 28) / 10") < <(make -j$(($(nproc)*2)) bzImage modules) && \
+    pv -lbtpefX -s $((6+$(find -name "*.ko" | wc -l))) < <(make -j2 modules_install install)
     ) || bash
 rm /boot/vmlinuz.old
 ls -lh /boot
