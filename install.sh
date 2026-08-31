@@ -344,8 +344,18 @@ routes_vpnUA="10.100.0.0/16 via 10.1.100.1"
 EOF
 grep -q autoinstall /proc/cmdline || nano etc/conf.d/net
 
-pcimodules=$(lspci -k | grep -e "Kernel driver in use:" -e "Kernel modules:" | sed 's/.*: //' | tr '_,[:upper:]' '-\n[:lower:]' | sort -u)
-usbmodules=$(usb-devices | grep -i "Driver=" | sed 's/.*iver=//' | tr '_,[:upper:]' '-\n[:lower:]' | grep -v "(none)" | sort -u | sed '/^hub$/d')
+declare -A devmodules
+{ set +x; } 2>/dev/null
+while read -r mod; do devmodules["$mod"]="p"; done < <(lspci -k | grep -e "Kernel driver in use:" -e "Kernel modules:" | \
+  sed 's/.*: //' | \
+  tr '_, [:upper:]' '-\n\n[:lower:]' | \
+  grep -v '^$')
+while read -r mod; do devmodules["$mod"]="u"; done < <(usb-devices | grep -i "Driver=" | \
+  sed 's/.*iver=//' | \
+  grep -v -e "(none)" -e "^hub$" | \
+  tr '_, [:upper:]' '-\n\n[:lower:]' | \
+  grep -v '^$')
+set -x
 
 prebuild_setup() {
 mount /var/tmp
@@ -423,6 +433,13 @@ set_kconfig() {
     # symbol gets everything before the =, and value everything after
     local symbol="${1%%=*}"
     local value="${1#*=}"
+
+    local old_line
+    old_line=$(grep -E "^#? *${symbol}[= ]" .config 2>/dev/null)
+    local old_val="unset"
+    [[ "$old_line" != \#* && "$old_line" == *"="* ]] && old_val="${old_line#*=}"
+    [[ "$old_val" == "$value" ]] && return 0
+
     # keep a separate lock to avoid race issues
     exec 9>>.config.lock
     flock -x 9
@@ -430,6 +447,7 @@ set_kconfig() {
     sed -i -E "/^#? *${symbol}[= ]/{s|.*|${symbol}=${value}|;:a;n;ba};\$a${symbol}=${value}" .config
     flock -u 9
     exec 9>&-
+    echo "+ set_kconfig ${symbol}=${value}   # previous: ${old_val}  ${2:-}" >&2
     )
 }
 
@@ -448,7 +466,7 @@ curl -L ${GHBASEURL}/krn330.conf > .config
         line="${line%%+([[:space:]])}"
 
         # only lines that are not empty, not comment and has =
-        [ -n "$line" ] && [[ "$line" != \#* ]] && [[ "$line" == *=* ]] && echo "+ set_kconfig $line" >&2 && set_kconfig "$line"
+        [ -n "$line" ] && [[ "$line" != \#* ]] && [[ "$line" == *=* ]] && set_kconfig "$line"
 done << EOF
 # Gentoo Linux
 CONFIG_GENTOO_LINUX=y
@@ -672,25 +690,31 @@ sed -i \
   -e '/^CONFIG_NF_CT_PROTO_SCTP/s/=m/=y/' \
   .config
 
-DISK_COUNT=$(readlink -f /sys/block/[sv]d* 2>/dev/null | grep -v "usb" | wc -l)
-if [ "$DISK_COUNT" -le 1 ]; then
-    echo "Single disk detected. change MD/RAID to modules"
-    set_kconfig "CONFIG_BLK_DEV_MD=m"
-    set_kconfig "CONFIG_MD_RAID=m"
-fi
-
 # Remove old low CPU core count
 sed -i "/^CONFIG_NR_CPUS=.*$/d" .config
 
 # v86d is dead so remove its initramfs
 sed -i 's#/usr/share/v86d/initramfs##' .config
 
+DISK_COUNT=$(readlink -f /sys/block/[sv]d* 2>/dev/null | grep -v "usb" | wc -l)
+{ set +x; } 2>/dev/null
+if [ "$DISK_COUNT" -le 1 ]; then
+    echo "Single disk detected. change MD/RAID to modules"
+    set_kconfig "CONFIG_BLK_DEV_MD=m"
+    set_kconfig "CONFIG_MD_RAID=m"
+fi
+
 # Add missing PCI/USB config options
 SEARCH_PATHS="/usr/src/linux/drivers/ /usr/src/linux/arch/x86/"
-drvstocheck=$(echo -e "$pcimodules\n$usbmodules\n$(lspci -k | grep -e "Kernel driver in use:" -e "Kernel modules:" | sed 's/.*: //' | tr '_,[:upper:]' '-\n[:lower:]' | sort -u)" | sort -u)
-for drv in $drvstocheck; do
+while read -r mod; do devmodules["$mod"]="p"; done < <(lspci -k | grep -e "Kernel driver in use:" -e "Kernel modules:" | \
+  sed 's/.*: //' | \
+  tr '_, [:upper:]' '-\n\n[:lower:]' | \
+  grep -v '^$')
+for drv in "${!devmodules[@]}"; do
+    echo "+ set_kconfig_by_module $drv" >&2
     set_kconfig_by_module "$drv" &
 done
+set -x
 wait
 rm .config.lock
 
@@ -721,10 +745,9 @@ set_kconfig_by_module() {
         fi
     fi
 
-    [[ "$SYMBOL" =~ "USB" || " $usbmodules " =~ [[:space:]]${drv}[[:space:]] ]] && ASSIGN=m || ASSIGN=y
+    [[ "$SYMBOL" =~ "USB" || "${devmodules[$drv]}" == "u" ]] && ASSIGN=m || ASSIGN=y
     wait
-    echo "+ set_kconfig ${SYMBOL}=$ASSIGN  # For module $drv" >&2
-    set_kconfig "${SYMBOL}=$ASSIGN"
+    set_kconfig "${SYMBOL}=$ASSIGN" "# For module $drv"
     )
 }
 
@@ -857,7 +880,7 @@ EOF
   declare -p \
     TIMEZONE NTPSERVER GHBASEURL \
     PACKAGES_INIT PACKAGES_PREFETCH PACKAGES_KRNL PACKAGES_POST \
-    NVMEKERNEL pcimodules usbmodules \
+    NVMEKERNEL devmodules \
     IDEV ROOTEMAIL
   declare -f \
     prebuild_setup \
