@@ -255,7 +255,7 @@ cat <<< "Verifying stage3 SHA512 ..."
 sha512sum -c <<< "$(grep -A1 SHA512 $FILE.DIGESTS.verified | grep $FILE\$)" || bash
 cat <<< "- ${esca}92mAwesome!${esca}0m stage3 verification looks good."
 rm $FILE.DIGESTS.verified $FILE.asc
-time tar xpf $FILE --xattrs-include='*.*' --numeric-owner && rm $FILE
+time (tar xpf $FILE --xattrs-include='*.*' --numeric-owner && rm $FILE && cat <<< '+ end_tar_x_stage3')
 
 wait || exit 1
 cp -rp /etc/portage/gnupg etc/portage
@@ -788,7 +788,8 @@ make_kernel() {
 # 6000 is rough estimate of how many lines we usually get for a compile --dry-run unfortunatly failed
   time (
     pv -lbtpefX -s $(bc <<< "scale=0; ($(grep -c "=[ym]" .config) * 28) / 10") < <(make -j$(($(nproc)*2)) bzImage modules) && \
-    pv -lbtpefX -s $((6+$(find -name "*.ko" | wc -l))) < <(make -j2 modules_install install)
+    pv -lbtpefX -s $((6+$(find -name "*.ko" | wc -l))) < <(make -j2 modules_install install) && \
+    cat <<< '+ end_make_kernel'
     ) || bash
 rm /boot/vmlinuz.old
 ls -lh /boot
@@ -907,6 +908,7 @@ setup_grub
 make_kernel
 postkernel_emerge
 postbuild_configure
+cat <<< '+ end_chroot'
 EOF
 
 if (grep -q usegitportage /proc/cmdline); then

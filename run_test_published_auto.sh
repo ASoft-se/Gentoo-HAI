@@ -91,7 +91,7 @@ QEMU_RUN_PID=$!
       *"Welcome to Gentoo-HAI Dracut"*)
         MSGQUEUE+=("$(tee -a $META_FILE <<< $'\xF0\x9F\x8E\xAF '"$(date) Initial boot OK")")
         ;;
-      "+ "[a-z0-9]*"_emerge"*|"+ make_"*)
+      "+ "[a-z0-9]*"_emerge"*|"+ end_"*)
         CURRENT_TIMER=$(grep -o -E '[a-z0-9_]+' <<< "$line")
         ;;
       real[[:space:]]*)
