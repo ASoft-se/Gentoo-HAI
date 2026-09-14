@@ -345,16 +345,22 @@ EOF
 grep -q autoinstall /proc/cmdline || nano etc/conf.d/net
 
 declare -A devmodules
-{ set +x; } 2>/dev/null
+populate_modules_pci() {
 while read -r mod; do devmodules["$mod"]="p"; done < <(lspci -k | grep -e "Kernel driver in use:" -e "Kernel modules:" | \
   sed 's/.*: //' | \
   tr '_, [:upper:]' '-\n\n[:lower:]' | \
   grep -v '^$')
+}
+populate_modules_usb() {
 while read -r mod; do devmodules["$mod"]="u"; done < <(usb-devices | grep -i "Driver=" | \
   sed 's/.*iver=//' | \
   grep -v -e "(none)" -e "^hub$" | \
   tr '_, [:upper:]' '-\n\n[:lower:]' | \
   grep -v '^$')
+}
+{ set +x; } 2>/dev/null
+populate_modules_pci
+populate_modules_usb
 set -x
 
 prebuild_setup() {
@@ -433,6 +439,10 @@ set_kconfig() {
     # symbol gets everything before the =, and value everything after
     local symbol="${1%%=*}"
     local value="${1#*=}"
+    if [[ -z $symbol ]]; then
+        echo "No symbol from $1"
+        exit 1
+    fi
 
     local old_line
     old_line=$(grep -E "^#? *${symbol}[= ]" .config 2>/dev/null)
@@ -726,15 +736,13 @@ fi
 
 # Add missing PCI/USB config options
 SEARCH_PATHS="/usr/src/linux/drivers/ /usr/src/linux/arch/x86/"
-while read -r mod; do devmodules["$mod"]="p"; done < <(lspci -k | grep -e "Kernel driver in use:" -e "Kernel modules:" | \
-  sed 's/.*: //' | \
-  tr '_, [:upper:]' '-\n\n[:lower:]' | \
-  grep -v '^$')
+populate_modules_pci
 for drv in "${!devmodules[@]}"; do
     echo "+ set_kconfig_by_module $drv" >&2
     set_kconfig_by_module "$drv" &
 done
 set -x
+declare -p devmodules > devmodules.sh
 wait
 # root disk is nvme or virtio force AHCI=m to reduce startup delay
 [[ "$(findmnt -no SOURCE /)" =~ /dev/(nvme|vd) ]] && set_kconfig "CONFIG_SATA_AHCI=m"
@@ -744,31 +752,29 @@ echo -e "x\ny\n" | make menuconfig > /dev/null
 }
 set_kconfig_by_module() {
     (
-    { set +x; } 2>/dev/null
     local drv="$1"
-    SYMBOL=$(find /usr/src/linux/ -name "Makefile" -exec grep "[[:space:]]*=[[:space:]]*${drv/-/.}\.o" {} \; | sed -En "s/.*(CONFIG_[A-Z0-9_]*).*/\1/p")
+    SYMBOL=$(grep -r --include="Makefile" "[[:space:]]*=[[:space:]]*${drv//-/.}\.o" /usr/src/linux/ | sed -En "s/.*(CONFIG_[A-Z0-9_]*).*/\1/p" | head -n 1)
 
     # Search for the DRV_NAME string in .c files
     if [ -z "$SYMBOL" ]; then
-        SRC_FILE=$(grep -rlE "(\.name[[:space:]]*=[[:space:]]*\"|#define DRV_NAME[[:space:]]*\"|MODULE_ALIAS.*)${drv/-/.}\"" $SEARCH_PATHS | head -n 1)
+        SRC_FILE=$(grep --include="*.c" -rlE "(\.name[[:space:]]*=[[:space:]]*\"|#define DRV_NAME[[:space:]]*\"|MODULE_ALIAS.*)${drv//-/.}\"" $SEARCH_PATHS | head -n 1)
         if [ -n "$SRC_FILE" ]; then
             OBJ_NAME=$(basename "$SRC_FILE" .c).o
             DIR_PATH=$(dirname "$SRC_FILE")
-            SYMBOL=$(grep -E "obj-\\$\(CONFIG_[A-Z0-9_]+\)[[:space:]]*[:+]=.*[[:space:]]${OBJ_NAME}" "$DIR_PATH/Makefile" | sed -n 's/.*\(CONFIG_[A-Z0-9_]*\).*/\1/p')
+            SYMBOL=$(grep -E "\\$\(CONFIG_[A-Z0-9_]+\)[[:space:]]*[:+]=.*[[:space:]]${OBJ_NAME}" "$DIR_PATH/Makefile" | sed -n 's/.*\(CONFIG_[A-Z0-9_]*\).*/\1/p' | head -n 1)
 
             if [ -z "$SYMBOL" ]; then
-                VAR_NAME=$(grep -E "[:+]=.*[[:space:]]${OBJ_NAME}" "$DIR_PATH/Makefile" | cut -d'=' -f1 | tr -d ' \t+:'| sed -E 's/-(y|m|objs)$//')
-                [ -n "$VAR_NAME" ] && SYMBOL=$(grep -E "obj-\\$\(CONFIG_[A-Z0-9_]+\)[[:space:]]*[:+]=.*[[:space:]]${VAR_NAME}.o" "$DIR_PATH/Makefile" | sed -n 's/.*\(CONFIG_[A-Z0-9_]*\).*/\1/p')
+                VAR_NAME=$(grep -E "[:+]=.*[[:space:]]${OBJ_NAME}" "$DIR_PATH/Makefile" | cut -d'=' -f1 | tr -d ' \t+:'| sed -E 's/-(y|m|objs)$//' | head -n 1)
+                [ -n "$VAR_NAME" ] && SYMBOL=$(grep -E "\\$\(CONFIG_[A-Z0-9_]+\)[[:space:]]*[:+]=.*[[:space:]]${VAR_NAME}.o" "$DIR_PATH/Makefile" | sed -n 's/.*\(CONFIG_[A-Z0-9_]*\).*/\1/p' | head -n 1)
             fi
         fi
         if [ -z "$SYMBOL" ]; then
             echo "Searching for $drv not found"
-            continue
+            exit 1
         fi
     fi
 
-    [[ "$SYMBOL" =~ "USB" || "$SYMBOL" =~ "_I2C" || "$SYMBOL" =~ "_WDT" || "${devmodules[$drv]}" == "u" ]] && ASSIGN=m || ASSIGN=y
-    wait
+    [[ "$SYMBOL" =~ "USB" || "$SYMBOL" =~ "_I2C" || "$SYMBOL" =~ "_WDT" || "$SYMBOL" =~ "_SND_" || "${devmodules[$drv]}" == "u" ]] && ASSIGN=m || ASSIGN=y
     set_kconfig "${SYMBOL}=$ASSIGN" "# For module $drv"
     )
 }
@@ -911,6 +917,7 @@ EOF
     initial_postemerge_setup \
     up2date_emerge \
     kernel_emerge \
+    populate_modules_pci \
     set_kconfig \
     set_kconfig_by_module \
     get_kernel_config \
