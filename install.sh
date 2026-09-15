@@ -844,6 +844,7 @@ dispatch-conf
 
 #todo fix with sed ... but virtual machine dont save clock ;)
 #/etc/init.d/hwclock save
+grep tty1 /etc/inittab | grep -qv noclear && \
 sed -i 's/^c1:12345:respawn:\/sbin\/agetty .* tty1 linux$/& --noclear/' /etc/inittab || bash
 cd /etc/init.d
 ln -s net.lo net.eth0
