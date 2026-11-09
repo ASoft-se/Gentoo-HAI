@@ -21,6 +21,7 @@ cat << EOF > pxe/online_boot.ipxe
 #!ipxe
 set keymap keymap=us net.ifnames=0 autoinstall
 ${filtered_ipxe}
+initrd ../install.sh /updates/root/g-install.sh mkdir=2 mode=755
 initrd ../updates/root/.bashrc /updates/root/.bashrc mkdir=2 mode=644
 initrd ../updates/etc/motd /updates/etc/motd mkdir=1 mode=644
 imgstat
@@ -72,9 +73,11 @@ QEMU_RUN_PID=$!
 
     line=$(sed 's/\x1b\[[0-9;]*[mKHP]//g' <<< "$line")
     case "$line" in
+      "BdsDxe: failed to start "* | \
       "Could not boot image:"* | \
       "No more network devices"* | \
-      "No bootable device."*)
+      "No bootable device."* | \
+      "Change hostname before you continue "*)
         echo "❌ FAIL $line"
         exit 1
         ;;
