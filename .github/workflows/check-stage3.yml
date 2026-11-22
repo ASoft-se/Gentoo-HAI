@@ -110,6 +110,8 @@ jobs:
           # in pcbios mode we override the rom used (q35 machine), ignoring efi since it is throwaway
           #strace -e trace=openat qemu-system-x86_64 -enable-kvm -M q35 -m 256 -nographic -nic user,model=virtio,tftp=.,bootfile=notthisfile.ipxe 2>&1 | grep -E "virtio|rom"
           [[ "${{ matrix.mode }}" == "pcbios" ]] && sudo cp pxe/virtio-net.rom /usr/lib/ipxe/qemu/efi-virtio.rom
+          #New path in version 1.17.0-debian-1.17.0-1ubuntu1
+          [[ "${{ matrix.mode }}" == "pcbios" ]] && sudo cp pxe/virtio-net.rom /usr/share/qemu/efi-virtio.rom
 
           [[ "${{ matrix.mode }}" == "efi" ]] && sudo ln -s /usr/share/OVMF /usr/share/edk2-ovmf || true
           [[ "${{ matrix.mode }}" == "efi" ]] && sudo ln -s /usr/share/edk2-ovmf/OVMF_CODE_4M.fd /usr/share/edk2-ovmf/OVMF_CODE.fd || true
