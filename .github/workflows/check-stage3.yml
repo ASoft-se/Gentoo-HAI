@@ -62,13 +62,17 @@ jobs:
           git clone --depth 1 https://github.com/ipxe/ipxe.git
           mkdir -p pxe
           cd ipxe
+          git log --format="%h %B" --oneline -n 5 | cat
           echo "#define DOWNLOAD_PROTO_HTTPS" >> src/config/local/general.h
           make -C src \
-            bin/virtio-net.rom \
-            bin/virtio-net.pxe \
+            bin-x86_64-pcbios/version.txt \
+            bin-x86_64-pcbios/virtio-net.rom \
+            bin-x86_64-pcbios/virtio-net.pxe \
             bin-x86_64-efi/ipxe-legacy.efi -j4
-          cp src/bin/virtio-net.rom ../pxe
-          cp src/bin/virtio-net.pxe ../pxe
+          cat src/bin-x86_64-pcbios/version.txt
+          cp src/bin-x86_64-pcbios/version.txt ../pxe
+          cp src/bin-x86_64-pcbios/virtio-net.rom ../pxe
+          cp src/bin-x86_64-pcbios/virtio-net.pxe ../pxe
           cp src/bin-x86_64-efi/ipxe-legacy.efi ../pxe/ipxe.efi
 
   test:
@@ -100,6 +104,7 @@ jobs:
 
       - name: Initialize QEMU and System Dependencies
         run: |
+          cat pxe/version.txt
           sudo apt update && sudo apt install -y qemu-system-x86 ovmf
           sudo chmod 666 /dev/kvm
           # in pcbios mode we override the rom used (q35 machine), ignoring efi since it is throwaway
